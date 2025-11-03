@@ -1,0 +1,230 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int       @id @default(autoincrement()) @db.UnsignedInt
+  firstname    String    @db.VarChar(60)
+  lastname     String    @db.VarChar(60)
+  email        String    @unique @db.VarChar(120)
+  whatsapp     String?   @db.VarChar(30)
+  passwordHash String?   @map("password_hash") @db.VarChar(255)
+  googleId     String?   @unique @map("google_id") @db.VarChar(255)
+  avatarUrl    String?   @map("avatar_url") @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  lastLoginAt  DateTime? @map("last_login_at")
+  isActive     Boolean   @default(true) @map("is_active")
+
+  // Relations
+  userDecks UserDeck[]
+  games     Game[]
+  rankings  Ranking[]
+
+  @@map("users")
+}
+
+model Artist {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  name      String   @db.VarChar(150)
+  country   String?  @db.VarChar(80)
+  genre     String?  @db.VarChar(80)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  albums Album[]
+  cards  Card[]
+
+  @@unique([name, country])
+  @@index([name])
+  @@map("artists")
+}
+
+model Album {
+  id          Int      @id @default(autoincrement()) @db.UnsignedInt
+  artistId    Int      @map("artist_id") @db.UnsignedInt
+  title       String   @db.VarChar(150)
+  releaseYear Int?     @map("release_year")
+  coverUrl    String?  @map("cover_url") @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  artist Artist @relation(fields: [artistId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  cards  Card[]
+
+  @@unique([artistId, title, releaseYear])
+  @@index([title])
+  @@map("albums")
+}
+
+model Deck {
+  id          Int      @id @default(autoincrement()) @db.UnsignedInt
+  title       String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  theme       String   @db.VarChar(50)
+  buyLink     String?  @map("buy_link") @db.VarChar(255)
+  coverImage  String?  @map("cover_image") @db.VarChar(255)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  cards     Card[]
+  userDecks UserDeck[]
+  games     Game[]
+  rankings  Ranking[]
+
+  @@index([theme])
+  @@map("decks")
+}
+
+enum Difficulty {
+  easy
+  medium
+  hard
+}
+
+model Card {
+  id         Int        @id @default(autoincrement()) @db.UnsignedInt
+  deckId     Int        @map("deck_id") @db.UnsignedInt
+  artistId   Int        @map("artist_id") @db.UnsignedInt
+  albumId    Int?       @map("album_id") @db.UnsignedInt
+  songName   String     @map("song_name") @db.VarChar(150)
+  qrCode     String     @map("qr_code") @db.Text
+  qrToken    String     @unique @map("qr_token") @db.Char(16)
+  spotifyUrl String?    @map("spotify_url") @db.VarChar(255)
+  previewUrl String?    @map("preview_url") @db.VarChar(255)
+  difficulty Difficulty @default(medium)
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  deck       Deck        @relation(fields: [deckId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  artist     Artist      @relation(fields: [artistId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  album      Album?      @relation(fields: [albumId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  gameRounds GameRound[]
+
+  @@unique([deckId, songName])
+  @@index([deckId])
+  @@index([artistId])
+  @@index([albumId])
+  @@index([difficulty])
+  @@map("cards")
+}
+
+enum UserDeckSource {
+  purchase
+  gift
+  admin
+}
+
+model UserDeck {
+  id          Int            @id @default(autoincrement()) @db.UnsignedInt
+  userId      Int            @map("user_id") @db.UnsignedInt
+  deckId      Int            @map("deck_id") @db.UnsignedInt
+  activatedAt DateTime       @default(now()) @map("activated_at")
+  source      UserDeckSource @default(purchase)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  deck Deck @relation(fields: [deckId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@unique([userId, deckId])
+  @@map("user_decks")
+}
+
+enum GameMode {
+  simple
+  score
+}
+
+enum GameStatus {
+  started
+  finished
+  abandoned
+}
+
+model Game {
+  id          Int        @id @default(autoincrement()) @db.UnsignedInt
+  userId      Int        @map("user_id") @db.UnsignedInt
+  deckId      Int        @map("deck_id") @db.UnsignedInt
+  mode        GameMode   @default(simple)
+  status      GameStatus @default(started)
+  totalPoints Int        @default(0) @map("total_points")
+  totalRounds Int        @default(0) @map("total_rounds")
+  startedAt   DateTime   @default(now()) @map("started_at")
+  endedAt     DateTime?  @map("ended_at")
+
+  // Relations
+  user   User        @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  deck   Deck        @relation(fields: [deckId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  rounds GameRound[]
+
+  @@index([userId])
+  @@index([deckId])
+  @@map("games")
+}
+
+model GameRound {
+  id            Int      @id @default(autoincrement()) @db.UnsignedInt
+  gameId        Int      @map("game_id") @db.UnsignedInt
+  cardId        Int      @map("card_id") @db.UnsignedInt
+  songCorrect   Boolean  @default(false) @map("song_correct")
+  artistCorrect Boolean  @default(false) @map("artist_correct")
+  albumCorrect  Boolean  @default(false) @map("album_correct")
+  points        Int      @default(0) @db.TinyInt
+  playedAt      DateTime @default(now()) @map("played_at")
+
+  // Relations
+  game Game @relation(fields: [gameId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@unique([gameId, cardId])
+  @@index([gameId])
+  @@map("game_rounds")
+}
+
+model Ranking {
+  id           Int      @id @default(autoincrement()) @db.UnsignedInt
+  userId       Int      @map("user_id") @db.UnsignedInt
+  deckId       Int      @map("deck_id") @db.UnsignedInt
+  pointsTotal  Int      @default(0) @map("points_total")
+  gamesPlayed  Int      @default(0) @map("games_played")
+  lastPlayedAt DateTime @default(now()) @map("last_played_at")
+  level        Int      @default(1)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  deck Deck @relation(fields: [deckId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@unique([userId, deckId])
+  @@index([deckId, pointsTotal(sort: Desc)])
+  @@map("rankings")
+}
+
+enum AdminRole {
+  super
+  editor
+}
+
+model AdminUser {
+  id           Int       @id @default(autoincrement()) @db.UnsignedInt
+  name         String    @db.VarChar(80)
+  email        String    @unique @db.VarChar(120)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  role         AdminRole @default(editor)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("admin_users")
+}
