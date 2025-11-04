@@ -20,7 +20,7 @@ class AdminController {
       if (id) {
         // Update existing deck
         deck = await prisma.deck.update({
-          where: { id: BigInt(id) },
+          where: { id: parseInt(id) },
           data: {
             title,
             description,
@@ -141,17 +141,19 @@ class AdminController {
         tokenExists = !!existingCard;
       }
 
-      // Create QR code data (you might want to customize this)
+      // Create QR code data with redirect URL
+      const qrRedirectUrl = `${process.env.FRONTEND_URL}/qr/${qrToken}`;
       const qrCode = JSON.stringify({
         token: qrToken,
-        song: songName,
-        deck: deckId
+        redirectUrl: qrRedirectUrl,
+        cardId: null, // Will be filled after creation
+        gameUrl: null // Will be filled after creation
       });
 
       // Create card
       const card = await prisma.card.create({
         data: {
-          deckId: BigInt(deckId),
+          deckId: parseInt(deckId),
           artistId: artist.id,
           albumId: album?.id,
           songName,
@@ -421,6 +423,62 @@ class AdminController {
       });
     } catch (error) {
       console.error('Error obteniendo estadísticas:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  }
+
+  // POST /api/admin/register (create new admin)
+  static async registerAdmin(req, res) {
+    try {
+      const { name, email, password, role = 'editor' } = req.body;
+
+      // Check if admin already exists
+      const existingAdmin = await prisma.adminUser.findUnique({
+        where: { email }
+      });
+
+      if (existingAdmin) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ya existe un administrador con este email'
+        });
+      }
+
+      // Hash password
+      const passwordHash = await AuthService.hashPassword(password);
+
+      // Create admin
+      const admin = await prisma.adminUser.create({
+        data: {
+          name,
+          email,
+          passwordHash,
+          role
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true
+        }
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Administrador creado exitosamente',
+        data: {
+          admin: {
+            ...admin,
+            id: admin.id.toString()
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error creando admin:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'

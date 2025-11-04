@@ -4,15 +4,43 @@ class GameController {
   // POST /api/game/start
   static async startGame(req, res) {
     try {
-      const { deckId, mode = 'simple' } = req.body;
+      const { deckId, mode = 'simple', participants = [] } = req.body;
       const userId = req.user.id;
+
+      // Validate deckId
+      if (!deckId || isNaN(parseInt(deckId))) {
+        return res.status(400).json({
+          success: false,
+          message: 'ID de mazo inválido'
+        });
+      }
+
+      // Validate participants for score mode
+      if (mode === 'score' && participants.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'El modo con puntaje requiere al menos un participante'
+        });
+      }
+
+      // Validate participant names
+      if (participants.length > 0) {
+        for (let participant of participants) {
+          if (!participant.name || participant.name.trim().length === 0) {
+            return res.status(400).json({
+              success: false,
+              message: 'Todos los participantes deben tener un nombre válido'
+            });
+          }
+        }
+      }
 
       // Check if user has access to the deck
       const userDeck = await prisma.userDeck.findUnique({
         where: {
           userId_deckId: {
-            userId: BigInt(userId),
-            deckId: BigInt(deckId)
+            userId: parseInt(userId),
+            deckId: parseInt(deckId)
           }
         }
       });
@@ -27,8 +55,13 @@ class GameController {
       // Check if deck exists and is active
       const deck = await prisma.deck.findUnique({
         where: { 
-          id: BigInt(deckId),
+          id: parseInt(deckId),
           active: true 
+        },
+        include: {
+          _count: {
+            select: { cards: true }
+          }
         }
       });
 
@@ -39,22 +72,64 @@ class GameController {
         });
       }
 
+      if (deck._count.cards === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Este mazo no tiene cartas disponibles'
+        });
+      }
+
+      // Check if user has an active game in this deck
+      const activeGame = await prisma.game.findFirst({
+        where: {
+          userId: parseInt(userId),
+          deckId: parseInt(deckId),
+          status: 'started'
+        }
+      });
+
+      if (activeGame) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ya tienes un juego activo en este mazo',
+          data: {
+            activeGameId: activeGame.id.toString()
+          }
+        });
+      }
+
       // Create new game
       const game = await prisma.game.create({
         data: {
-          userId: BigInt(userId),
-          deckId: BigInt(deckId),
+          userId: parseInt(userId),
+          deckId: parseInt(deckId),
           mode,
-          status: 'started'
+          status: 'started',
+          participants: mode === 'score' && participants.length > 0 ? {
+            create: participants.map(p => ({
+              name: p.name.trim()
+            }))
+          } : undefined
         },
         include: {
           deck: {
             select: {
               id: true,
               title: true,
-              theme: true
+              theme: true,
+              _count: {
+                select: { cards: true }
+              }
             }
-          }
+          },
+          participants: mode === 'score' ? {
+            select: {
+              id: true,
+              name: true,
+              totalPoints: true,
+              totalRounds: true
+            }
+          } : false
         }
       });
 
@@ -71,8 +146,15 @@ class GameController {
             startedAt: game.startedAt,
             deck: {
               ...game.deck,
-              id: game.deck.id.toString()
-            }
+              id: game.deck.id.toString(),
+              totalCards: game.deck._count.cards
+            },
+            participants: game.participants ? game.participants.map(p => ({
+              id: p.id.toString(),
+              name: p.name,
+              totalPoints: p.totalPoints,
+              totalRounds: p.totalRounds
+            })) : []
           }
         }
       });
@@ -93,16 +175,41 @@ class GameController {
         cardId, 
         songGuess, 
         artistGuess, 
-        albumGuess 
+        albumGuess,
+        participantAnswers // Array for score mode: [{ participantId, songGuess, artistGuess, albumGuess }]
       } = req.body;
       const userId = req.user.id;
+
+      // Validate inputs
+      if (!cardId || isNaN(parseInt(cardId))) {
+        return res.status(400).json({
+          success: false,
+          message: 'ID de carta inválido'
+        });
+      }
 
       // Find game and verify ownership
       const game = await prisma.game.findUnique({
         where: { 
-          id: BigInt(gameId),
-          userId: BigInt(userId),
+          id: parseInt(gameId),
+          userId: parseInt(userId),
           status: 'started'
+        },
+        include: {
+          deck: {
+            select: {
+              id: true,
+              title: true
+            }
+          },
+          participants: {
+            select: {
+              id: true,
+              name: true,
+              totalPoints: true,
+              totalRounds: true
+            }
+          }
         }
       });
 
@@ -115,10 +222,16 @@ class GameController {
 
       // Find the card and get correct answers
       const card = await prisma.card.findUnique({
-        where: { id: BigInt(cardId) },
+        where: { id: parseInt(cardId) },
         include: {
           artist: true,
-          album: true
+          album: true,
+          deck: {
+            select: {
+              id: true,
+              title: true
+            }
+          }
         }
       });
 
@@ -129,103 +242,358 @@ class GameController {
         });
       }
 
-      // Check if this card was already played in this game
-      const existingRound = await prisma.gameRound.findUnique({
-        where: {
-          gameId_cardId: {
-            gameId: BigInt(gameId),
-            cardId: BigInt(cardId)
-          }
-        }
-      });
-
-      if (existingRound) {
+      // Verify card belongs to the same deck as the game
+      if (card.deckId !== game.deckId) {
         return res.status(400).json({
           success: false,
-          message: 'Esta carta ya fue jugada en esta partida'
+          message: 'Esta carta no pertenece al mazo del juego actual'
         });
       }
 
       // Normalize function for comparison
-      const normalize = (str) => str?.toLowerCase().trim().replace(/[^\w\s]/g, '') || '';
+      const normalize = (str) => {
+        if (!str) return '';
+        return str.toLowerCase()
+                 .trim()
+                 .replace(/[^\w\s]/g, '')
+                 .replace(/\s+/g, ' ');
+      };
 
-      // Check answers
-      const songCorrect = normalize(songGuess) === normalize(card.songName);
-      const artistCorrect = normalize(artistGuess) === normalize(card.artist.name);
-      const albumCorrect = card.album ? 
-        normalize(albumGuess) === normalize(card.album.title) : 
-        !albumGuess; // If no album exists, correct if no guess was made
+      // Calculate points function
+      const calculatePoints = (songGuess, artistGuess, albumGuess) => {
+        const songCorrect = normalize(songGuess) === normalize(card.songName);
+        const artistCorrect = normalize(artistGuess) === normalize(card.artist.name);
+        const albumCorrect = card.album ? 
+          normalize(albumGuess) === normalize(card.album.title) : 
+          !albumGuess;
 
-      // Calculate points based on difficulty and correct answers
-      let points = 0;
-      if (songCorrect) points += 1;
-      if (artistCorrect) points += 1;
-      if (albumCorrect && card.album) points += 1;
+        let points = 0;
+        let pointsBreakdown = {
+          song: 0,
+          artist: 0,
+          album: 0,
+          difficultyBonus: 0
+        };
 
-      // Bonus points based on difficulty
-      if (points > 0) {
+        if (songCorrect) {
+          points += 1;
+          pointsBreakdown.song = 1;
+        }
+        if (artistCorrect) {
+          points += 1;
+          pointsBreakdown.artist = 1;
+        }
+        if (albumCorrect && card.album) {
+          points += 1;
+          pointsBreakdown.album = 1;
+        }
+
+        // Difficulty multiplier
+        let difficultyMultiplier = 1;
         switch (card.difficulty) {
           case 'easy':
-            break; // No bonus
+            difficultyMultiplier = 1;
+            break;
           case 'medium':
-            points += 0.5;
+            difficultyMultiplier = 1.5;
             break;
           case 'hard':
-            points += 1;
+            difficultyMultiplier = 2;
             break;
         }
-      }
 
-      // Round points to integer
-      points = Math.round(points);
+        if (points > 0) {
+          const bonus = Math.round((points * difficultyMultiplier) - points);
+          points = Math.round(points * difficultyMultiplier);
+          pointsBreakdown.difficultyBonus = bonus;
+        }
 
-      // Create game round
-      const gameRound = await prisma.gameRound.create({
-        data: {
-          gameId: BigInt(gameId),
-          cardId: BigInt(cardId),
+        return {
           songCorrect,
           artistCorrect,
           albumCorrect,
-          points
-        }
-      });
+          points,
+          pointsBreakdown,
+          difficultyMultiplier
+        };
+      };
 
-      // Update game totals
-      const updatedGame = await prisma.game.update({
-        where: { id: BigInt(gameId) },
-        data: {
-          totalPoints: {
-            increment: points
-          },
-          totalRounds: {
-            increment: 1
-          }
-        }
-      });
-
-      res.json({
-        success: true,
-        message: 'Ronda enviada exitosamente',
-        data: {
-          round: {
-            id: gameRound.id.toString(),
-            songCorrect,
-            artistCorrect,
-            albumCorrect,
-            points,
-            correctAnswers: {
-              song: card.songName,
-              artist: card.artist.name,
-              album: card.album?.title || null
+      // Handle different game modes
+      if (game.mode === 'simple') {
+        // Simple mode - single player
+        // Check if this card was already played
+        const existingRound = await prisma.gameRound.findUnique({
+          where: {
+            gameId_cardId: {
+              gameId: parseInt(gameId),
+              cardId: parseInt(cardId)
             }
-          },
-          game: {
-            totalPoints: updatedGame.totalPoints,
-            totalRounds: updatedGame.totalRounds
           }
+        });
+
+        if (existingRound) {
+          return res.status(400).json({
+            success: false,
+            message: 'Esta carta ya fue jugada en esta partida'
+          });
         }
-      });
+
+        const result = calculatePoints(songGuess, artistGuess, albumGuess);
+
+        // Create game round
+        const gameRound = await prisma.gameRound.create({
+          data: {
+            gameId: parseInt(gameId),
+            cardId: parseInt(cardId),
+            songCorrect: result.songCorrect,
+            artistCorrect: result.artistCorrect,
+            albumCorrect: result.albumCorrect,
+            points: result.points
+          }
+        });
+
+        // Update game totals
+        const updatedGame = await prisma.game.update({
+          where: { id: parseInt(gameId) },
+          data: {
+            totalPoints: {
+              increment: result.points
+            },
+            totalRounds: {
+              increment: 1
+            }
+          }
+        });
+
+        // Get total cards in deck for progress tracking
+        const totalCardsInDeck = await prisma.card.count({
+          where: { deckId: game.deckId }
+        });
+
+        res.json({
+          success: true,
+          message: 'Ronda enviada exitosamente (modo simple)',
+          data: {
+            round: {
+              id: gameRound.id.toString(),
+              cardId: cardId.toString(),
+              card: {
+                id: card.id.toString(),
+                songName: card.songName,
+                artist: card.artist.name,
+                album: card.album?.title || null,
+                difficulty: card.difficulty,
+                preview: card.previewUrl,
+                qrCode: card.qrCode
+              },
+              answers: {
+                song: {
+                  guess: songGuess,
+                  correct: card.songName,
+                  isCorrect: result.songCorrect
+                },
+                artist: {
+                  guess: artistGuess,
+                  correct: card.artist.name,
+                  isCorrect: result.artistCorrect
+                },
+                album: {
+                  guess: albumGuess || null,
+                  correct: card.album?.title || null,
+                  isCorrect: result.albumCorrect
+                }
+              },
+              points: result.points,
+              pointsBreakdown: result.pointsBreakdown,
+              difficultyMultiplier: result.difficultyMultiplier,
+              playedAt: gameRound.playedAt
+            },
+            game: {
+              id: gameId.toString(),
+              deck: game.deck,
+              status: 'started',
+              totalPoints: updatedGame.totalPoints,
+              totalRounds: updatedGame.totalRounds,
+              progress: {
+                roundsPlayed: updatedGame.totalRounds,
+                totalCards: totalCardsInDeck,
+                percentage: Math.round((updatedGame.totalRounds / totalCardsInDeck) * 100)
+              },
+              startedAt: updatedGame.startedAt
+            }
+          }
+        });
+
+      } else if (game.mode === 'score') {
+        // Score mode - multiple participants
+        if (!participantAnswers || !Array.isArray(participantAnswers) || participantAnswers.length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'El modo con puntaje requiere respuestas de los participantes'
+          });
+        }
+
+        // Validate participants exist
+        const participantIds = participantAnswers.map(p => parseInt(p.participantId));
+        const validParticipants = await prisma.gameParticipant.findMany({
+          where: {
+            gameId: parseInt(gameId),
+            id: { in: participantIds }
+          }
+        });
+
+        if (validParticipants.length !== participantIds.length) {
+          return res.status(400).json({
+            success: false,
+            message: 'Algunos participantes no son válidos para este juego'
+          });
+        }
+
+        // Check if any participant already played this card
+        const existingParticipantRounds = await prisma.gameParticipantRound.findMany({
+          where: {
+            participantId: { in: participantIds },
+            cardId: parseInt(cardId)
+          }
+        });
+
+        if (existingParticipantRounds.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Algunos participantes ya jugaron esta carta'
+          });
+        }
+
+        // Process each participant's answers
+        const participantResults = [];
+        const participantRounds = [];
+
+        for (const answer of participantAnswers) {
+          const result = calculatePoints(answer.songGuess, answer.artistGuess, answer.albumGuess);
+          
+          const participantRound = {
+            participantId: parseInt(answer.participantId),
+            cardId: parseInt(cardId),
+            songCorrect: result.songCorrect,
+            artistCorrect: result.artistCorrect,
+            albumCorrect: result.albumCorrect,
+            points: result.points
+          };
+
+          participantRounds.push(participantRound);
+          participantResults.push({
+            participantId: answer.participantId,
+            ...result,
+            answers: {
+              song: {
+                guess: answer.songGuess,
+                correct: card.songName,
+                isCorrect: result.songCorrect
+              },
+              artist: {
+                guess: answer.artistGuess,
+                correct: card.artist.name,
+                isCorrect: result.artistCorrect
+              },
+              album: {
+                guess: answer.albumGuess || null,
+                correct: card.album?.title || null,
+                isCorrect: result.albumCorrect
+              }
+            }
+          });
+        }
+
+        // Create all participant rounds in a transaction
+        await prisma.$transaction(async (tx) => {
+          // Create participant rounds
+          await tx.gameParticipantRound.createMany({
+            data: participantRounds
+          });
+
+          // Update participant totals
+          for (const round of participantRounds) {
+            await tx.gameParticipant.update({
+              where: { id: round.participantId },
+              data: {
+                totalPoints: { increment: round.points },
+                totalRounds: { increment: 1 }
+              }
+            });
+          }
+
+          // Update game totals
+          const totalPoints = participantRounds.reduce((sum, round) => sum + round.points, 0);
+          await tx.game.update({
+            where: { id: parseInt(gameId) },
+            data: {
+              totalPoints: { increment: totalPoints },
+              totalRounds: { increment: 1 }
+            }
+          });
+        });
+
+        // Get updated participants and game data
+        const updatedParticipants = await prisma.gameParticipant.findMany({
+          where: { gameId: parseInt(gameId) },
+          orderBy: { totalPoints: 'desc' }
+        });
+
+        const updatedGame = await prisma.game.findUnique({
+          where: { id: parseInt(gameId) }
+        });
+
+        // Get total cards in deck for progress tracking
+        const totalCardsInDeck = await prisma.card.count({
+          where: { deckId: game.deckId }
+        });
+
+        res.json({
+          success: true,
+          message: 'Ronda enviada exitosamente (modo con puntaje)',
+          data: {
+            round: {
+              cardId: cardId.toString(),
+              card: {
+                id: card.id.toString(),
+                songName: card.songName,
+                artist: card.artist.name,
+                album: card.album?.title || null,
+                difficulty: card.difficulty,
+                preview: card.previewUrl,
+                qrCode: card.qrCode
+              },
+              participantResults: participantResults.map(result => ({
+                participantId: result.participantId.toString(),
+                points: result.points,
+                pointsBreakdown: result.pointsBreakdown,
+                difficultyMultiplier: result.difficultyMultiplier,
+                answers: result.answers
+              }))
+            },
+            game: {
+              id: gameId.toString(),
+              deck: game.deck,
+              status: 'started',
+              totalPoints: updatedGame.totalPoints,
+              totalRounds: updatedGame.totalRounds,
+              progress: {
+                roundsPlayed: updatedGame.totalRounds,
+                totalCards: totalCardsInDeck,
+                percentage: Math.round((updatedGame.totalRounds / totalCardsInDeck) * 100)
+              },
+              startedAt: updatedGame.startedAt,
+              participants: updatedParticipants.map(p => ({
+                id: p.id.toString(),
+                name: p.name,
+                totalPoints: p.totalPoints,
+                totalRounds: p.totalRounds
+              }))
+            }
+          }
+        });
+      }
+
     } catch (error) {
       console.error('Error enviando ronda:', error);
       res.status(500).json({
@@ -244,8 +612,8 @@ class GameController {
       // Find game and verify ownership
       const game = await prisma.game.findUnique({
         where: { 
-          id: BigInt(gameId),
-          userId: BigInt(userId),
+          id: parseInt(gameId),
+          userId: parseInt(userId),
           status: 'started'
         },
         include: {
@@ -267,7 +635,7 @@ class GameController {
 
       // Update game status
       const finishedGame = await prisma.game.update({
-        where: { id: BigInt(gameId) },
+        where: { id: parseInt(gameId) },
         data: {
           status: 'finished',
           endedAt: new Date()
@@ -278,7 +646,7 @@ class GameController {
       const existingRanking = await prisma.ranking.findUnique({
         where: {
           userId_deckId: {
-            userId: BigInt(userId),
+            userId: parseInt(userId),
             deckId: game.deckId
           }
         }
@@ -300,7 +668,7 @@ class GameController {
       } else {
         await prisma.ranking.create({
           data: {
-            userId: BigInt(userId),
+            userId: parseInt(userId),
             deckId: game.deckId,
             pointsTotal: finishedGame.totalPoints,
             gamesPlayed: 1,
@@ -311,7 +679,7 @@ class GameController {
 
       // Get final game summary with rounds
       const gameRounds = await prisma.gameRound.findMany({
-        where: { gameId: BigInt(gameId) },
+        where: { gameId: parseInt(gameId) },
         orderBy: { playedAt: 'asc' }
       });
 
@@ -358,8 +726,8 @@ class GameController {
 
       const game = await prisma.game.findUnique({
         where: { 
-          id: BigInt(gameId),
-          userId: BigInt(userId)
+          id: parseInt(gameId),
+          userId: parseInt(userId)
         },
         include: {
           deck: {

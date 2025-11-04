@@ -11,7 +11,7 @@ class RankingController {
       if (deckId) {
         // Rankings for specific deck
         rankings = await prisma.ranking.findMany({
-          where: { deckId: BigInt(deckId) },
+          where: { deckId: parseInt(deckId) },
           include: {
             user: {
               select: {
@@ -129,7 +129,7 @@ class RankingController {
       const authenticatedUserId = req.user?.id;
 
       // Users can only see their own rankings unless admin
-      if (authenticatedUserId && BigInt(userId) !== BigInt(authenticatedUserId)) {
+      if (authenticatedUserId && parseInt(userId) !== parseInt(authenticatedUserId)) {
         return res.status(403).json({
           success: false,
           message: 'No tienes permisos para ver estos rankings'
@@ -137,7 +137,7 @@ class RankingController {
       }
 
       const userRankings = await prisma.ranking.findMany({
-        where: { userId: BigInt(userId) },
+        where: { userId: parseInt(userId) },
         include: {
           deck: {
             select: {
@@ -165,7 +165,7 @@ class RankingController {
           WHERE u.is_active = true
           GROUP BY u.id
         ) user_rank
-        WHERE user_rank.id = ${BigInt(userId)}
+        WHERE user_rank.id = ${parseInt(userId)}
       `;
 
       const globalRank = globalRankQuery.length > 0 ? Number(globalRankQuery[0].rank_position) : null;
@@ -213,7 +213,7 @@ class RankingController {
       const { limit = 10 } = req.query;
 
       const topPlayers = await prisma.ranking.findMany({
-        where: { deckId: BigInt(deckId) },
+        where: { deckId: parseInt(deckId) },
         include: {
           user: {
             select: {
@@ -232,7 +232,7 @@ class RankingController {
       });
 
       const deck = await prisma.deck.findUnique({
-        where: { id: BigInt(deckId) },
+        where: { id: parseInt(deckId) },
         select: {
           id: true,
           title: true,

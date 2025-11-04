@@ -15,7 +15,16 @@ const validateStartGame = [
   body('mode')
     .optional()
     .isIn(['simple', 'score'])
-    .withMessage('Modo debe ser simple o score')
+    .withMessage('Modo debe ser simple o score'),
+  body('participants')
+    .optional()
+    .isArray()
+    .withMessage('Los participantes deben ser un array'),
+  body('participants.*.name')
+    .if(body('participants').exists())
+    .trim()
+    .isLength({ min: 1, max: 80 })
+    .withMessage('El nombre del participante debe tener entre 1 y 80 caracteres')
 ];
 
 // Validation middleware for submitting a round
@@ -25,6 +34,7 @@ const validateRound = [
     .withMessage('ID de la carta es requerido')
     .isNumeric()
     .withMessage('ID de la carta debe ser numérico'),
+  // For simple mode
   body('songGuess')
     .optional()
     .isString()
@@ -34,6 +44,30 @@ const validateRound = [
     .isString()
     .trim(),
   body('albumGuess')
+    .optional()
+    .isString()
+    .trim(),
+  // For score mode
+  body('participantAnswers')
+    .optional()
+    .isArray()
+    .withMessage('Las respuestas de participantes deben ser un array'),
+  body('participantAnswers.*.participantId')
+    .if(body('participantAnswers').exists())
+    .isNumeric()
+    .withMessage('ID del participante debe ser numérico'),
+  body('participantAnswers.*.songGuess')
+    .if(body('participantAnswers').exists())
+    .optional()
+    .isString()
+    .trim(),
+  body('participantAnswers.*.artistGuess')
+    .if(body('participantAnswers').exists())
+    .optional()
+    .isString()
+    .trim(),
+  body('participantAnswers.*.albumGuess')
+    .if(body('participantAnswers').exists())
     .optional()
     .isString()
     .trim()

@@ -53,6 +53,24 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Root endpoint with API info
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Welcome to Oldly Fun Music Box API',
+    version: '1.0.0',
+    documentation: {
+      health: '/health',
+      auth: '/api/auth',
+      decks: '/api/decks',
+      cards: '/api/cards',
+      games: '/api/game',
+      rankings: '/api/rankings',
+      admin: '/api/admin'
+    }
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/decks', deckRoutes);

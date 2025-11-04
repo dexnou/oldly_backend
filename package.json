@@ -1,18 +1,34 @@
 {
   "name": "oldly-fun-music-box",
   "version": "1.0.0",
-  "description": "API backend para Oldly Fun Music Box - Juego musical con códigos QR",
+  "description": "API backend para Oldly Fun Music Box - Juego musical de trivias con sistema de puntuación y autenticación",
   "main": "src/app.js",
   "scripts": {
     "dev": "nodemon src/app.js",
     "start": "node src/app.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "build": "npm install && npx prisma generate",
+    "postinstall": "npx prisma generate",
+    "prisma:generate": "npx prisma generate",
+    "prisma:migrate": "npx prisma migrate dev",
+    "prisma:deploy": "npx prisma migrate deploy",
+    "prisma:studio": "npx prisma studio",
+    "prisma:push": "npx prisma db push",
+    "seed": "node prisma/seed.js"
   },
-  "keywords": ["music", "game", "qr", "api", "nodejs"],
-  "author": "",
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "keywords": ["music", "trivia", "game", "api", "nodejs", "express", "prisma", "mysql"],
+  "author": "dexnou",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dexnou/oldly_backend.git"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",

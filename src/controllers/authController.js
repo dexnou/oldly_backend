@@ -150,7 +150,7 @@ class AuthController {
     }
   }
 
-  // POST /api/auth/google
+  // POST /api/auth/google (also handles GET callback from OAuth)
   static async googleAuth(req, res) {
     try {
       // This should be called after Google OAuth callback
@@ -171,6 +171,13 @@ class AuthController {
         type: 'user'
       });
 
+      // If this is a callback from OAuth (GET request), redirect to frontend with token
+      if (req.method === 'GET') {
+        // For testing, redirect to our test page with token
+        return res.redirect(`${process.env.FRONTEND_URL}/test-oauth.html?token=${token}`);
+      }
+
+      // For API calls (POST), return JSON
       res.json({
         success: true,
         message: 'Login con Google exitoso',

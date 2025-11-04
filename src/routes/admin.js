@@ -83,6 +83,25 @@ const validateCard = [
     .withMessage('La dificultad debe ser easy, medium o hard')
 ];
 
+// Validation for admin registration
+const validateAdminRegister = [
+  body('name')
+    .trim()
+    .isLength({ min: 2, max: 80 })
+    .withMessage('El nombre debe tener entre 2 y 80 caracteres'),
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Email inválido'),
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('La contraseña debe tener al menos 6 caracteres'),
+  body('role')
+    .optional()
+    .isIn(['super', 'editor'])
+    .withMessage('El rol debe ser super o editor')
+];
+
 // Validation for admin login
 const validateAdminLogin = [
   body('email')
@@ -106,6 +125,13 @@ const handleValidationErrors = (req, res, next) => {
   }
   next();
 };
+
+// Admin registration (not protected - for initial setup)
+router.post('/register', 
+  validateAdminRegister, 
+  handleValidationErrors, 
+  AdminController.registerAdmin
+);
 
 // Admin login (not protected)
 router.post('/login', 
