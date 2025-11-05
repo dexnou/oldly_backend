@@ -85,7 +85,6 @@ model Card {
   songName              String                 @map("song_name") @db.VarChar(150)
   qrCode                String                 @map("qr_code") @db.Text
   qrToken               String                 @unique @map("qr_token") @db.Char(16)
-  spotifyUrl            String?                @map("spotify_url") @db.VarChar(255)
   previewUrl            String?                @map("preview_url") @db.VarChar(255)
   difficulty            Difficulty             @default(medium)
   createdAt             DateTime               @default(now()) @map("created_at")

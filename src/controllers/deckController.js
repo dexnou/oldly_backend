@@ -7,6 +7,10 @@ class DeckController {
       const { theme, active = 'true' } = req.query;
       const userId = req.user?.id;
 
+      // Debug logs
+      console.log('🔍 DEBUG - getDecks called');
+      console.log('🔍 DEBUG - userId:', userId, 'type:', typeof userId);
+
       const whereCondition = {
         active: active === 'true'
       };
@@ -43,16 +47,25 @@ class DeckController {
           where: { userId: parseInt(userId) },
           select: { deckId: true }
         });
+        
+        // Debug logs
+        console.log('🔍 DEBUG - userDecks found:', userDecks);
       }
 
-      const userDeckIds = userDecks.map(ud => ud.deckId.toString());
+      const userDeckIds = userDecks.map(ud => ud.deckId);
+      console.log('🔍 DEBUG - userDeckIds:', userDeckIds);
 
-      const decksWithAccess = decks.map(deck => ({
-        ...deck,
-        id: deck.id.toString(),
-        cardCount: deck._count.cards,
-        hasAccess: userId ? userDeckIds.includes(deck.id.toString()) : false
-      }));
+      const decksWithAccess = decks.map(deck => {
+        const hasAccess = userId ? userDeckIds.includes(deck.id) : false;
+        console.log(`🔍 DEBUG - Deck ${deck.id} (${deck.title}): hasAccess = ${hasAccess}`);
+        
+        return {
+          ...deck,
+          id: deck.id.toString(),
+          cardCount: deck._count.cards,
+          hasAccess
+        };
+      });
 
       res.json({
         success: true,

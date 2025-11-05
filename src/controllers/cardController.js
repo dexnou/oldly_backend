@@ -5,6 +5,7 @@ class CardController {
   static async playCard(req, res) {
     try {
       const { id } = req.params;
+      const userId = req.user?.id;
 
       // Find card by ID or QR token
       let card;
@@ -77,6 +78,36 @@ class CardController {
         });
       }
 
+      // Verificar si el usuario tiene acceso al deck de esta carta
+      if (userId) {
+        const userDeck = await prisma.userDeck.findUnique({
+          where: {
+            userId_deckId: {
+              userId: parseInt(userId),
+              deckId: card.deckId
+            }
+          }
+        });
+
+        if (!userDeck) {
+          return res.status(403).json({
+            success: false,
+            message: 'No tienes acceso a este mazo. Escanea el código QR del mazo primero para activar tu acceso.',
+            needsAccess: true,
+            deck: {
+              id: card.deck.id.toString(),
+              title: card.deck.title,
+              theme: card.deck.theme
+            }
+          });
+        }
+      } else {
+        return res.status(401).json({
+          success: false,
+          message: 'Debes estar logueado para jugar esta carta'
+        });
+      }
+
       // Return card info for playing (without revealing correct answers initially)
       res.json({
         success: true,
@@ -86,7 +117,6 @@ class CardController {
             qrToken: card.qrToken,
             difficulty: card.difficulty,
             previewUrl: card.previewUrl,
-            spotifyUrl: card.spotifyUrl,
             deck: {
               ...card.deck,
               id: card.deck.id.toString()

@@ -171,10 +171,24 @@ class AuthController {
         type: 'user'
       });
 
-      // If this is a callback from OAuth (GET request), redirect to frontend with token
+      // If this is a callback from OAuth (GET request), return JSON response
       if (req.method === 'GET') {
-        // For testing, redirect to our test page with token
-        return res.redirect(`${process.env.FRONTEND_URL}/test-oauth.html?token=${token}`);
+        // For testing, return JSON instead of redirect
+        return res.json({
+          success: true,
+          message: 'Login con Google exitoso',
+          data: {
+            user: {
+              id: user.id.toString(),
+              firstname: user.firstname,
+              lastname: user.lastname,
+              email: user.email,
+              whatsapp: user.whatsapp,
+              avatarUrl: user.avatarUrl
+            },
+            token
+          }
+        });
       }
 
       // For API calls (POST), return JSON
