@@ -180,6 +180,229 @@ async function main() {
 
     console.log(`✅ Movie song added: ${cardCharly.songName} by ${artistCharly.name}`);
 
+    // 4. Agregar más canciones argentinas de los 80s
+    console.log('🎵 Adding more 80s Argentine songs...');
+
+    // 4. Los Abuelos de la Nada - "Mil horas" (1983)
+    const artistAbuelos = await prisma.artist.upsert({
+      where: { 
+        name_country: {
+          name: 'Los Abuelos de la Nada',
+          country: 'Argentina'
+        }
+      },
+      update: {},
+      create: {
+        name: 'Los Abuelos de la Nada',
+        country: 'Argentina',
+        genre: 'Pop Rock'
+      }
+    });
+
+    const albumAbuelos = await prisma.album.upsert({
+      where: {
+        artistId_title_releaseYear: {
+          artistId: artistAbuelos.id,
+          title: 'Los Abuelos de la Nada',
+          releaseYear: 1983
+        }
+      },
+      update: {},
+      create: {
+        artistId: artistAbuelos.id,
+        title: 'Los Abuelos de la Nada',
+        releaseYear: 1983,
+        coverUrl: 'https://oldly.com/images/albums/abuelos-nada.jpg'
+      }
+    });
+
+    const qrTokenAbuelos = generateQRToken();
+    const cardAbuelos = await prisma.card.upsert({
+      where: {
+        deckId_songName: {
+          deckId: deck80s.id,
+          songName: 'Mil horas'
+        }
+      },
+      update: {},
+      create: {
+        deckId: deck80s.id,
+        artistId: artistAbuelos.id,
+        albumId: albumAbuelos.id,
+        songName: 'Mil horas',
+        qrCode: `https://oldly.com/play/${qrTokenAbuelos}`,
+        qrToken: qrTokenAbuelos,
+        previewUrl: null,
+        difficulty: 'easy'
+      }
+    });
+    console.log(`✅ 80s song added: ${cardAbuelos.songName} by ${artistAbuelos.name}`);
+
+    // 5. Fito Páez - "Alarma entre los ángeles" (1985)
+    const artistFito = await prisma.artist.upsert({
+      where: { 
+        name_country: {
+          name: 'Fito Páez',
+          country: 'Argentina'
+        }
+      },
+      update: {},
+      create: {
+        name: 'Fito Páez',
+        country: 'Argentina',
+        genre: 'Pop Rock'
+      }
+    });
+
+    const albumFito = await prisma.album.upsert({
+      where: {
+        artistId_title_releaseYear: {
+          artistId: artistFito.id,
+          title: 'Del 63',
+          releaseYear: 1984
+        }
+      },
+      update: {},
+      create: {
+        artistId: artistFito.id,
+        title: 'Del 63',
+        releaseYear: 1984,
+        coverUrl: 'https://oldly.com/images/albums/del-63.jpg'
+      }
+    });
+
+    const qrTokenFito = generateQRToken();
+    const cardFito = await prisma.card.upsert({
+      where: {
+        deckId_songName: {
+          deckId: deck80s.id,
+          songName: 'Alarma entre los ángeles'
+        }
+      },
+      update: {},
+      create: {
+        deckId: deck80s.id,
+        artistId: artistFito.id,
+        albumId: albumFito.id,
+        songName: 'Alarma entre los ángeles',
+        qrCode: `https://oldly.com/play/${qrTokenFito}`,
+        qrToken: qrTokenFito,
+        previewUrl: null,
+        difficulty: 'medium'
+      }
+    });
+    console.log(`✅ 80s song added: ${cardFito.songName} by ${artistFito.name}`);
+
+    // 6. Sumo - "Divididos por la felicidad" (1985)
+    const artistSumo = await prisma.artist.upsert({
+      where: { 
+        name_country: {
+          name: 'Sumo',
+          country: 'Argentina'
+        }
+      },
+      update: {},
+      create: {
+        name: 'Sumo',
+        country: 'Argentina',
+        genre: 'Rock Alternativo'
+      }
+    });
+
+    const albumSumo = await prisma.album.upsert({
+      where: {
+        artistId_title_releaseYear: {
+          artistId: artistSumo.id,
+          title: 'Corpiños en la madrugada',
+          releaseYear: 1985
+        }
+      },
+      update: {},
+      create: {
+        artistId: artistSumo.id,
+        title: 'Corpiños en la madrugada',
+        releaseYear: 1985,
+        coverUrl: 'https://oldly.com/images/albums/corpinos-madrugada.jpg'
+      }
+    });
+
+    const qrTokenSumo = generateQRToken();
+    const cardSumo = await prisma.card.upsert({
+      where: {
+        deckId_songName: {
+          deckId: deck80s.id,
+          songName: 'Divididos por la felicidad'
+        }
+      },
+      update: {},
+      create: {
+        deckId: deck80s.id,
+        artistId: artistSumo.id,
+        albumId: albumSumo.id,
+        songName: 'Divididos por la felicidad',
+        qrCode: `https://oldly.com/play/${qrTokenSumo}`,
+        qrToken: qrTokenSumo,
+        previewUrl: null,
+        difficulty: 'hard'
+      }
+    });
+    console.log(`✅ 80s song added: ${cardSumo.songName} by ${artistSumo.name}`);
+
+    // 7. Patricio Rey y sus Redonditos de Ricota - "Ji ji ji" (1986)
+    const artistRedonditos = await prisma.artist.upsert({
+      where: { 
+        name_country: {
+          name: 'Patricio Rey y sus Redonditos de Ricota',
+          country: 'Argentina'
+        }
+      },
+      update: {},
+      create: {
+        name: 'Patricio Rey y sus Redonditos de Ricota',
+        country: 'Argentina',
+        genre: 'Rock Nacional'
+      }
+    });
+
+    const albumRedonditos = await prisma.album.upsert({
+      where: {
+        artistId_title_releaseYear: {
+          artistId: artistRedonditos.id,
+          title: 'Gulp!',
+          releaseYear: 1985
+        }
+      },
+      update: {},
+      create: {
+        artistId: artistRedonditos.id,
+        title: 'Gulp!',
+        releaseYear: 1985,
+        coverUrl: 'https://oldly.com/images/albums/gulp.jpg'
+      }
+    });
+
+    const qrTokenRedonditos = generateQRToken();
+    const cardRedonditos = await prisma.card.upsert({
+      where: {
+        deckId_songName: {
+          deckId: deck80s.id,
+          songName: 'Ji ji ji'
+        }
+      },
+      update: {},
+      create: {
+        deckId: deck80s.id,
+        artistId: artistRedonditos.id,
+        albumId: albumRedonditos.id,
+        songName: 'Ji ji ji',
+        qrCode: `https://oldly.com/play/${qrTokenRedonditos}`,
+        qrToken: qrTokenRedonditos,
+        previewUrl: null,
+        difficulty: 'hard'
+      }
+    });
+    console.log(`✅ 80s song added: ${cardRedonditos.songName} by ${artistRedonditos.name}`);
+
     console.log('🎵 Ready to add more songs! Please provide the data in the following format:');
     console.log('');
     console.log('For 80s deck:');

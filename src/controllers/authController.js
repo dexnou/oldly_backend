@@ -8,14 +8,16 @@ class AuthController {
       const { firstname, lastname, email, password, whatsapp } = req.body;
 
       // Check if user already exists
-      const existingUser = await prisma.user.findUnique({
+      const existingUser = await User.findUnique({
         where: { email }
       });
 
       if (existingUser) {
         return res.status(400).json({
           success: false,
-          message: 'El usuario ya existe con este email'
+          message: 'El email ya está registrado',
+          errorCode: 'EMAIL_EXISTS',
+          action: 'REDIRECT_TO_LOGIN'
         });
       }
 
@@ -93,14 +95,17 @@ class AuthController {
       if (!user || !user.isActive) {
         return res.status(401).json({
           success: false,
-          message: 'Credenciales inválidas'
+          message: 'Credenciales inválidas',
+          errorCode: 'INVALID_CREDENTIALS'
         });
       }
 
       if (!user.passwordHash) {
         return res.status(401).json({
           success: false,
-          message: 'Esta cuenta fue creada con Google. Usa el login de Google.'
+          message: 'Esta cuenta fue creada con Google. Usa el login de Google.',
+          errorCode: 'GOOGLE_ACCOUNT_ONLY',
+          action: 'USE_GOOGLE_LOGIN'
         });
       }
 
@@ -110,7 +115,8 @@ class AuthController {
       if (!isValidPassword) {
         return res.status(401).json({
           success: false,
-          message: 'Credenciales inválidas'
+          message: 'Credenciales inválidas',
+          errorCode: 'INVALID_CREDENTIALS'
         });
       }
 
@@ -145,7 +151,8 @@ class AuthController {
       console.error('Error en login:', error);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'Error interno del servidor',
+        errorCode: 'INTERNAL_ERROR'
       });
     }
   }
@@ -160,7 +167,9 @@ class AuthController {
       if (!user) {
         return res.status(401).json({
           success: false,
-          message: 'Error en autenticación con Google'
+          message: 'Error en autenticación con Google',
+          errorCode: 'GOOGLE_AUTH_FAILED',
+          action: 'RETRY_GOOGLE_AUTH'
         });
       }
 
@@ -171,24 +180,13 @@ class AuthController {
         type: 'user'
       });
 
-      // If this is a callback from OAuth (GET request), return JSON response
+      // If this is a callback from OAuth (GET request), redirect to frontend with token
       if (req.method === 'GET') {
-        // For testing, return JSON instead of redirect
-        return res.json({
-          success: true,
-          message: 'Login con Google exitoso',
-          data: {
-            user: {
-              id: user.id.toString(),
-              firstname: user.firstname,
-              lastname: user.lastname,
-              email: user.email,
-              whatsapp: user.whatsapp,
-              avatarUrl: user.avatarUrl
-            },
-            token
-          }
-        });
+        const redirectUrl = req.query.redirect || '/';
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        
+        // Redirect to frontend callback page with token and redirect info
+        return res.redirect(`${frontendUrl}/auth/callback?token=${token}&redirect=${encodeURIComponent(redirectUrl)}`);
       }
 
       // For API calls (POST), return JSON
@@ -211,7 +209,8 @@ class AuthController {
       console.error('Error en Google auth:', error);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'Error interno del servidor',
+        errorCode: 'INTERNAL_ERROR'
       });
     }
   }
@@ -246,7 +245,8 @@ class AuthController {
       console.error('Error obteniendo perfil:', error);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'Error interno del servidor',
+        errorCode: 'INTERNAL_ERROR'
       });
     }
   }

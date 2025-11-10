@@ -42,6 +42,7 @@ router.get('/google/callback',
 // POST /api/auth/google (for mobile/SPA applications)
 router.post('/google', AuthController.googleAuth);
 
+
 // GET /api/auth/me (protected)
 router.get('/me', authMiddleware, AuthController.getProfile);
 

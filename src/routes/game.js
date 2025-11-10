@@ -73,6 +73,62 @@ const validateRound = [
     .trim()
 ];
 
+// Validation middleware for starting a competitive game
+const validateStartCompetitive = [
+  body('deckId')
+    .notEmpty()
+    .withMessage('ID del mazo es requerido')
+    .isNumeric()
+    .withMessage('ID del mazo debe ser numérico'),
+  body('participants')
+    .isArray({ min: 1, max: 8 })
+    .withMessage('Debe haber entre 1 y 8 participantes'),
+  body('participants.*.name')
+    .trim()
+    .isLength({ min: 1, max: 80 })
+    .withMessage('El nombre del participante debe tener entre 1 y 80 caracteres')
+];
+
+// Validation middleware for competitive round
+const validateCompetitiveRound = [
+  body('cardId')
+    .notEmpty()
+    .withMessage('ID de la carta es requerido')
+    .isNumeric()
+    .withMessage('ID de la carta debe ser numérico'),
+  body('participantAnswers')
+    .isArray({ min: 1 })
+    .withMessage('Se requieren respuestas de participantes'),
+  body('participantAnswers.*.participantId')
+    .isNumeric()
+    .withMessage('ID del participante debe ser numérico'),
+  body('participantAnswers.*.userKnew')
+    .isObject()
+    .withMessage('userKnew debe ser un objeto'),
+  // Note: More specific validation for nested userKnew properties is done in the controller
+];
+
+// Validation middleware for scoring a card
+const validateScoreCard = [
+  body('cardId')
+    .notEmpty()
+    .withMessage('ID de la carta es requerido')
+    .isNumeric()
+    .withMessage('ID de la carta debe ser numérico'),
+  body('userKnew.songKnew')
+    .optional()
+    .isBoolean()
+    .withMessage('songKnew debe ser verdadero o falso'),
+  body('userKnew.artistKnew')
+    .optional()
+    .isBoolean()
+    .withMessage('artistKnew debe ser verdadero o falso'),
+  body('userKnew.albumKnew')
+    .optional()
+    .isBoolean()
+    .withMessage('albumKnew debe ser verdadero o falso')
+];
+
 // Handle validation errors
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
@@ -94,6 +150,28 @@ router.post('/start',
   GameController.startGame
 );
 
+// GET /api/game/active-competitive/:deckId
+router.get('/active-competitive/:deckId',
+  authMiddleware,
+  GameController.getActiveCompetitiveGame
+);
+
+// POST /api/game/start-competitive
+router.post('/start-competitive',
+  authMiddleware,
+  validateStartCompetitive,
+  handleValidationErrors,
+  GameController.startCompetitive
+);
+
+// POST /api/game/score-card
+router.post('/score-card',
+  authMiddleware,
+  validateScoreCard,
+  handleValidationErrors,
+  GameController.scoreCard
+);
+
 // GET /api/game/:id
 router.get('/:id', authMiddleware, GameController.getGame);
 
@@ -103,6 +181,14 @@ router.post('/:id/round',
   validateRound, 
   handleValidationErrors, 
   GameController.submitRound
+);
+
+// POST /api/game/:id/submit-competitive-round
+router.post('/:id/submit-competitive-round',
+  authMiddleware,
+  validateCompetitiveRound,
+  handleValidationErrors,
+  GameController.submitCompetitiveRound
 );
 
 // POST /api/game/:id/finish

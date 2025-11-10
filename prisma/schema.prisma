@@ -86,6 +86,7 @@ model Card {
   qrCode                String                 @map("qr_code") @db.Text
   qrToken               String                 @unique @map("qr_token") @db.Char(16)
   previewUrl            String?                @map("preview_url") @db.VarChar(255)
+  spotifyUrl            String?                @map("spotify_url") @db.VarChar(255)
   difficulty            Difficulty             @default(medium)
   createdAt             DateTime               @default(now()) @map("created_at")
   updatedAt             DateTime               @updatedAt @map("updated_at")
@@ -229,14 +230,17 @@ enum UserDeckSource {
 }
 
 enum GameMode {
-  simple
-  score
+  casual      // Sin puntaje, solo ver respuestas
+  competitive // Con puntaje, múltiples jugadores
+  simple      // Mantener para compatibilidad
+  score       // Mantener para compatibilidad
 }
 
 enum GameStatus {
   started
   finished
   abandoned
+  expired
 }
 
 enum AdminRole {

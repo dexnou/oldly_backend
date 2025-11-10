@@ -10,6 +10,7 @@ class DeckController {
       // Debug logs
       console.log('🔍 DEBUG - getDecks called');
       console.log('🔍 DEBUG - userId:', userId, 'type:', typeof userId);
+      console.log('🔍 DEBUG - req.user:', req.user);
 
       const whereCondition = {
         active: active === 'true'
@@ -57,7 +58,7 @@ class DeckController {
 
       const decksWithAccess = decks.map(deck => {
         const hasAccess = userId ? userDeckIds.includes(deck.id) : false;
-        console.log(`🔍 DEBUG - Deck ${deck.id} (${deck.title}): hasAccess = ${hasAccess}`);
+        console.log(`🔍 DEBUG - Deck ${deck.id} (${deck.title}): hasAccess = ${hasAccess}, userDeckIds:`, userDeckIds, 'deck.id type:', typeof deck.id);
         
         return {
           ...deck,
@@ -87,6 +88,8 @@ class DeckController {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
+
+      console.log('🔍 DEBUG - getDeckById called for deckId:', id, 'userId:', userId);
 
       const deck = await prisma.deck.findUnique({
         where: { 
@@ -128,6 +131,7 @@ class DeckController {
           }
         });
         hasAccess = !!userDeck;
+        console.log('🔍 DEBUG - hasAccess for deck:', hasAccess, 'userDeck:', userDeck);
       }
 
       res.json({
@@ -189,6 +193,8 @@ class DeckController {
           songName: true,
           qrToken: true,
           difficulty: true,
+          previewUrl: true,
+          spotifyUrl: true,
           createdAt: true,
           artist: {
             select: {
@@ -267,6 +273,12 @@ class DeckController {
       const userId = req.user.id;
       const { source = 'purchase' } = req.body;
 
+      console.log('🚀 DEBUG - activateDeck called');
+      console.log('🚀 DEBUG - deckId:', id, 'type:', typeof id);
+      console.log('🚀 DEBUG - userId:', userId, 'type:', typeof userId);
+      console.log('🚀 DEBUG - req.user:', req.user);
+      console.log('🚀 DEBUG - source:', source);
+
       // Check if deck exists and is active
       const deck = await prisma.deck.findUnique({
         where: { 
@@ -274,6 +286,8 @@ class DeckController {
           active: true 
         }
       });
+
+      console.log('🚀 DEBUG - deck found:', deck);
 
       if (!deck) {
         return res.status(404).json({
@@ -292,6 +306,8 @@ class DeckController {
         }
       });
 
+      console.log('🚀 DEBUG - existingAccess:', existingAccess);
+
       if (existingAccess) {
         return res.status(400).json({
           success: false,
@@ -300,7 +316,9 @@ class DeckController {
       }
 
       // Grant access
-      await prisma.userDeck.create({
+      console.log('🚀 DEBUG - Creating userDeck with userId:', parseInt(userId), 'deckId:', parseInt(id), 'source:', source);
+      
+      const newUserDeck = await prisma.userDeck.create({
         data: {
           userId: parseInt(userId),
           deckId: parseInt(id),
@@ -308,12 +326,15 @@ class DeckController {
         }
       });
 
+      console.log('🚀 DEBUG - userDeck created successfully:', newUserDeck);
+
       res.json({
         success: true,
         message: 'Acceso al mazo activado exitosamente'
       });
     } catch (error) {
-      console.error('Error activando mazo:', error);
+      console.error('🚨 ERROR activando mazo:', error);
+      console.error('🚨 ERROR stack:', error.stack);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'

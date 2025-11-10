@@ -163,4 +163,10 @@ router.get('/users/export', AdminController.exportUsers);
 // GET /api/admin/stats - Get dashboard stats
 router.get('/stats', AdminController.getStats);
 
+// DELETE /api/admin/decks/:id - Delete deck
+router.delete('/decks/:id', AdminController.deleteDeck);
+
+// DELETE /api/admin/cards/:id - Delete card
+router.delete('/cards/:id', AdminController.deleteCard);
+
 module.exports = router;

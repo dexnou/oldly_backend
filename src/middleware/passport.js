@@ -11,6 +11,14 @@ passport.use(new GoogleStrategy({
   callbackURL: process.env.GOOGLE_CALLBACK_URL
 }, async (accessToken, refreshToken, profile, done) => {
   try {
+    console.log('🔍 Google OAuth - Profile received:', {
+      id: profile.id,
+      displayName: profile.displayName,
+      name: profile.name,
+      emails: profile.emails,
+      photos: profile.photos
+    });
+
     let user = await prisma.user.findUnique({
       where: { googleId: profile.id }
     });
@@ -42,10 +50,17 @@ passport.use(new GoogleStrategy({
     }
 
     // Create new user
+    console.log('🚀 Creating new Google user with data:', {
+      firstname: profile.name.givenName || profile.displayName || 'Usuario',
+      lastname: profile.name.familyName || 'Google',
+      email: profile.emails[0].value,
+      googleId: profile.id
+    });
+
     user = await prisma.user.create({
       data: {
-        firstname: profile.name.givenName,
-        lastname: profile.name.familyName,
+        firstname: profile.name.givenName || profile.displayName || 'Usuario',
+        lastname: profile.name.familyName || 'Google', // Proporcionar valor por defecto
         email: profile.emails[0].value,
         googleId: profile.id,
         avatarUrl: profile.photos[0]?.value,
@@ -53,8 +68,12 @@ passport.use(new GoogleStrategy({
       }
     });
 
+    console.log('✅ Google user created successfully:', user.id);
+
     return done(null, user);
   } catch (error) {
+    console.error('🚨 Error in Google OAuth:', error);
+    console.error('🚨 Profile that caused error:', profile);
     return done(error, null);
   }
 }));

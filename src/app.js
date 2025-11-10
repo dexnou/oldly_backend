@@ -17,6 +17,9 @@ const adminRoutes = require('./routes/admin');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy (importante para ngrok, v0, y otros proxies)
+app.set('trust proxy', true);
+
 // Security middleware
 app.use(helmet());
 
@@ -29,9 +32,43 @@ app.use(limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // Lista de orígenes permitidos
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'https://ellena-hyperaemic-numbers.ngrok-free.dev',
+      process.env.FRONTEND_URL
+    ];
+    
+    // Expresiones regulares para dominios permitidos
+    const v0PreviewRegex = /^https:\/\/.*\.vusercontent\.net$/;
+    const vercelRegex = /^https:\/\/.*\.vercel\.app$/;
+    const ngrokRegex = /^https:\/\/.*\.ngrok/;
+    
+    // Verificar con regex
+    const isV0Preview = origin && v0PreviewRegex.test(origin);
+    const isVercel = origin && vercelRegex.test(origin);
+    const isNgrok = origin && ngrokRegex.test(origin);
+    
+    // Permitir si está en la lista, es v0, vercel, ngrok, o no hay origin (requests del servidor)
+    if (!origin || allowedOrigins.includes(origin) || isV0Preview || isVercel || isNgrok) {
+      callback(null, true);
+    } else {
+      console.log('🚨 CORS blocked origin:', origin);
+      callback(new Error('No permitido por CORS'));
+    }
+  },
   credentials: true
 }));
+
+// Debug middleware (temporal)
+app.use((req, res, next) => {
+  console.log(`🔍 ${req.method} ${req.path} - Origin: ${req.get('Origin')}`);
+  if (req.path === '/api/decks') {
+    console.log(`🎯 DECKS REQUEST - Method: ${req.method}, Query:`, req.query);
+  }
+  next();
+});
 
 // Logging
 app.use(morgan('combined'));

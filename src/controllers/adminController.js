@@ -546,6 +546,269 @@ class AdminController {
       });
     }
   }
+
+  // DELETE /api/admin/decks/:id
+  static async deleteDeck(req, res) {
+    try {
+      const { id } = req.params;
+      const { force = false } = req.query;
+
+      // Verificar que el deck existe
+      const deck = await prisma.deck.findUnique({
+        where: { id: parseInt(id) },
+        include: {
+          _count: {
+            select: {
+              cards: true,
+              userDecks: true,
+              games: true
+            }
+          }
+        }
+      });
+
+      if (!deck) {
+        return res.status(404).json({
+          success: false,
+          message: 'Mazo no encontrado'
+        });
+      }
+
+      // Si no es eliminación forzada, verificar dependencias
+      if (!force) {
+        if (deck._count.cards > 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'No se puede eliminar el mazo porque tiene cartas asociadas',
+            data: {
+              cardCount: deck._count.cards,
+              userCount: deck._count.userDecks,
+              gameCount: deck._count.games,
+              suggestion: 'Usa el parámetro ?force=true para eliminar forzadamente'
+            }
+          });
+        }
+
+        if (deck._count.userDecks > 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'No se puede eliminar el mazo porque hay usuarios que lo tienen activado',
+            data: {
+              cardCount: deck._count.cards,
+              userCount: deck._count.userDecks,
+              gameCount: deck._count.games,
+              suggestion: 'Usa el parámetro ?force=true para eliminar forzadamente'
+            }
+          });
+        }
+      }
+
+      // Eliminación en cascada usando transacción
+      await prisma.$transaction(async (tx) => {
+        // 1. Eliminar rondas de juego de participantes
+        await tx.gameParticipantRound.deleteMany({
+          where: {
+            card: {
+              deckId: parseInt(id)
+            }
+          }
+        });
+
+        // 2. Eliminar participantes de juegos del deck
+        await tx.gameParticipant.deleteMany({
+          where: {
+            game: {
+              deckId: parseInt(id)
+            }
+          }
+        });
+
+        // 3. Eliminar rondas de juego del deck
+        await tx.gameRound.deleteMany({
+          where: {
+            game: {
+              deckId: parseInt(id)
+            }
+          }
+        });
+
+        // 4. Eliminar juegos del deck
+        await tx.game.deleteMany({
+          where: { deckId: parseInt(id) }
+        });
+
+        // 5. Eliminar rankings del deck
+        await tx.ranking.deleteMany({
+          where: { deckId: parseInt(id) }
+        });
+
+        // 6. Eliminar relaciones usuario-deck
+        await tx.userDeck.deleteMany({
+          where: { deckId: parseInt(id) }
+        });
+
+        // 7. Eliminar cartas del deck (esto eliminará albums y artists huérfanos automáticamente)
+        await tx.card.deleteMany({
+          where: { deckId: parseInt(id) }
+        });
+
+        // 8. Finalmente eliminar el deck
+        await tx.deck.delete({
+          where: { id: parseInt(id) }
+        });
+      });
+
+      res.json({
+        success: true,
+        message: `Mazo "${deck.title}" eliminado exitosamente`,
+        data: {
+          deletedDeck: {
+            id: deck.id.toString(),
+            title: deck.title,
+            cardsDeleted: deck._count.cards,
+            usersAffected: deck._count.userDecks,
+            gamesDeleted: deck._count.games
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error eliminando deck:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  }
+
+  // DELETE /api/admin/cards/:id
+  static async deleteCard(req, res) {
+    try {
+      const { id } = req.params;
+      const { force = false } = req.query;
+
+      // Verificar que la carta existe
+      const card = await prisma.card.findUnique({
+        where: { id: parseInt(id) },
+        include: {
+          artist: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          album: {
+            select: {
+              id: true,
+              title: true
+            }
+          },
+          deck: {
+            select: {
+              id: true,
+              title: true
+            }
+          },
+          _count: {
+            select: {
+              gameRounds: true,
+              gameParticipantRounds: true
+            }
+          }
+        }
+      });
+
+      if (!card) {
+        return res.status(404).json({
+          success: false,
+          message: 'Carta no encontrada'
+        });
+      }
+
+      // Verificar si la carta ha sido jugada
+      const totalRounds = card._count.gameRounds + card._count.gameParticipantRounds;
+      
+      if (!force && totalRounds > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No se puede eliminar la carta porque ha sido jugada en partidas',
+          data: {
+            card: {
+              id: card.id.toString(),
+              songName: card.songName,
+              artist: card.artist.name,
+              deck: card.deck.title
+            },
+            timesPlayed: totalRounds,
+            suggestion: 'Usa el parámetro ?force=true para eliminar forzadamente'
+          }
+        });
+      }
+
+      // Eliminación en cascada usando transacción
+      await prisma.$transaction(async (tx) => {
+        // 1. Eliminar rondas de participantes donde se jugó esta carta
+        await tx.gameParticipantRound.deleteMany({
+          where: { cardId: parseInt(id) }
+        });
+
+        // 2. Eliminar rondas de juego donde se jugó esta carta
+        await tx.gameRound.deleteMany({
+          where: { cardId: parseInt(id) }
+        });
+
+        // 3. Eliminar la carta
+        await tx.card.delete({
+          where: { id: parseInt(id) }
+        });
+
+        // 4. Verificar si el artist o album quedaron huérfanos y eliminarlos
+        if (card.artist) {
+          const remainingCards = await tx.card.count({
+            where: { artistId: card.artist.id }
+          });
+          
+          if (remainingCards === 0) {
+            await tx.artist.delete({
+              where: { id: card.artist.id }
+            });
+          }
+        }
+
+        if (card.album) {
+          const remainingCards = await tx.card.count({
+            where: { albumId: card.album.id }
+          });
+          
+          if (remainingCards === 0) {
+            await tx.album.delete({
+              where: { id: card.album.id }
+            });
+          }
+        }
+      });
+
+      res.json({
+        success: true,
+        message: `Carta "${card.songName}" eliminada exitosamente`,
+        data: {
+          deletedCard: {
+            id: card.id.toString(),
+            songName: card.songName,
+            artist: card.artist.name,
+            album: card.album?.title || null,
+            deck: card.deck.title,
+            roundsDeleted: totalRounds
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error eliminando carta:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  }
 }
 
 module.exports = AdminController;
