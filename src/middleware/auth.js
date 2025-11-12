@@ -5,6 +5,9 @@ const authMiddleware = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
+    console.log('🔍 AUTH DEBUG - Token present:', !!token);
+    console.log('🔍 AUTH DEBUG - Token preview:', token ? token.substring(0, 50) + '...' : 'none');
+    
     if (!token) {
       return res.status(401).json({ 
         success: false, 
@@ -13,6 +16,7 @@ const authMiddleware = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('🔍 AUTH DEBUG - Decoded token:', decoded);
     
     const user = await prisma.user.findUnique({
       where: { id: parseInt(decoded.id) },
@@ -21,11 +25,15 @@ const authMiddleware = async (req, res, next) => {
         firstname: true,
         lastname: true,
         email: true,
-        isActive: true
+        isActive: true,
+        googleId: true  // Add this to see if user is from Google
       }
     });
 
+    console.log('🔍 AUTH DEBUG - User found:', user);
+
     if (!user || !user.isActive) {
+      console.log('🚨 AUTH DEBUG - User not found or inactive:', { user: !!user, isActive: user?.isActive });
       return res.status(401).json({ 
         success: false, 
         message: 'Token inválido o usuario inactivo.' 
@@ -33,6 +41,7 @@ const authMiddleware = async (req, res, next) => {
     }
 
     req.user = user;
+    console.log('🔍 AUTH DEBUG - User authenticated:', { id: user.id, email: user.email, isGoogle: !!user.googleId });
     next();
   } catch (error) {
     // Manejo específico de errores JWT

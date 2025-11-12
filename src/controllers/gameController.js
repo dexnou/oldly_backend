@@ -890,10 +890,14 @@ class GameController {
       });
     } catch (error) {
       console.error('Error getting active competitive game:', error);
+      console.error('Stack trace:', error.stack);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor',
-        errorCode: 'INTERNAL_ERROR'
+        message: process.env.NODE_ENV === 'production' 
+          ? 'Error interno del servidor' 
+          : `Error getting active competitive game: ${error.message}`,
+        errorCode: 'INTERNAL_ERROR',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   }
@@ -1109,10 +1113,14 @@ class GameController {
       });
     } catch (error) {
       console.error('Error iniciando juego competitivo:', error);
+      console.error('Stack trace:', error.stack);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor',
-        errorCode: 'INTERNAL_ERROR'
+        message: process.env.NODE_ENV === 'production' 
+          ? 'Error interno del servidor' 
+          : `Error starting competitive game: ${error.message}`,
+        errorCode: 'INTERNAL_ERROR',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   }

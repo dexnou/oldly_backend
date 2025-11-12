@@ -8,7 +8,7 @@ class AuthController {
       const { firstname, lastname, email, password, whatsapp } = req.body;
 
       // Check if user already exists
-      const existingUser = await User.findUnique({
+      const existingUser = await prisma.user.findUnique({
         where: { email }
       });
 
@@ -46,13 +46,22 @@ class AuthController {
       });
 
       // Generate JWT token
-      const token = AuthService.generateToken({
+      const tokenPayload = {
         id: user.id.toString(),
         email: user.email,
         type: 'user'
+      };
+      
+      console.log('🔍 NORMAL LOGIN - Generating token for user:', { 
+        id: user.id, 
+        email: user.email, 
+        isGoogle: !!user.googleId,
+        payload: tokenPayload 
       });
+      
+      const token = AuthService.generateToken(tokenPayload);
 
-      res.status(201).json({
+      res.json({
         success: true,
         message: 'Usuario registrado exitosamente',
         data: {
@@ -174,11 +183,20 @@ class AuthController {
       }
 
       // Generate JWT token
-      const token = AuthService.generateToken({
+      const tokenPayload = {
         id: user.id.toString(),
         email: user.email,
         type: 'user'
+      };
+      
+      console.log('🔍 GOOGLE AUTH - Generating token for user:', { 
+        id: user.id, 
+        email: user.email, 
+        isGoogle: !!user.googleId,
+        payload: tokenPayload 
       });
+      
+      const token = AuthService.generateToken(tokenPayload);
 
       // If this is a callback from OAuth (GET request), redirect to frontend with token
       if (req.method === 'GET') {

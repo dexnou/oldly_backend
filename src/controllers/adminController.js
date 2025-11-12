@@ -304,32 +304,36 @@ class AdminController {
       );
 
       if (format === 'csv') {
-        // Generate CSV
+        // Generate CSV with proper escaping
         const csvHeader = 'ID,Nombre,Apellido,Email,WhatsApp,Fecha Registro,Último Login,Activo,Google Auth,Puntos Totales,Juegos Totales,Mazos,Juegos Iniciados\n';
-        const csvRows = usersWithStats.map(user => [
-          user.id,
-          user.firstname,
-          user.lastname,
-          user.email,
-          user.whatsapp || '',
-          user.createdAt.toISOString(),
-          user.lastLoginAt ? user.lastLoginAt.toISOString() : '',
-          user.isActive ? 'Sí' : 'No',
-          user.hasGoogleAuth ? 'Sí' : 'No',
-          user.stats.totalPoints,
-          user.stats.totalGames,
-          user.stats.decksOwned,
-          user.stats.gamesStarted
-        ].join(',')).join('\n');
+        
+        const csvRows = usersWithStats.map(user => {
+          const row = [
+            user.id,
+            `"${(user.firstname || '').replace(/"/g, '""')}"`,
+            `"${(user.lastname || '').replace(/"/g, '""')}"`,
+            `"${user.email.replace(/"/g, '""')}"`,
+            `"${(user.whatsapp || '').replace(/"/g, '""')}"`,
+            user.createdAt.toISOString(),
+            user.lastLoginAt ? user.lastLoginAt.toISOString() : '',
+            user.isActive ? 'Sí' : 'No',
+            user.hasGoogleAuth ? 'Sí' : 'No',
+            user.stats.totalPoints,
+            user.stats.totalGames,
+            user.stats.decksOwned,
+            user.stats.gamesStarted
+          ];
+          return row.join(',');
+        });
 
-        const csvContent = csvHeader + csvRows;
+        const csvContent = csvHeader + csvRows.join('\n');
 
-        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', 'attachment; filename=usuarios_export.csv');
-        res.send(csvContent);
+        res.send('\ufeff' + csvContent); // Add BOM for UTF-8
       } else {
-        // Return JSON
-        res.json({
+        // Return JSON formatted
+        const jsonData = {
           success: true,
           data: {
             users: usersWithStats,
@@ -342,7 +346,11 @@ class AdminController {
               }
             }
           }
-        });
+        };
+
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename=usuarios_export.json');
+        res.send(JSON.stringify(jsonData, null, 2)); // Pretty-printed JSON
       }
     } catch (error) {
       console.error('Error exportando usuarios:', error);

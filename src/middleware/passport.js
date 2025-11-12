@@ -64,7 +64,8 @@ passport.use(new GoogleStrategy({
         email: profile.emails[0].value,
         googleId: profile.id,
         avatarUrl: profile.photos[0]?.value,
-        lastLoginAt: new Date()
+        lastLoginAt: new Date(),
+        isActive: true  // Establecer explícitamente como activo
       }
     });
 

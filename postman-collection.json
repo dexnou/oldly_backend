@@ -1,0 +1,627 @@
+{
+  "info": {
+    "name": "Oldly Fun Music Box API",
+    "description": "Colección completa de endpoints para testing del backend de Oldly Fun Music Box",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Test\",\n  \"lastname\": \"User\",\n  \"email\": \"test@example.com\",\n  \"password\": \"123456\",\n  \"whatsapp\": \"+5491123456789\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/register",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('token', response.data.token);",
+                  "    pm.test('User registered successfully', function () {",
+                  "        pm.expect(response.success).to.be.true;",
+                  "        pm.expect(response.data.user).to.have.property('id');",
+                  "        pm.expect(response.data.token).to.be.a('string');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/login",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('token', response.data.token);",
+                  "    pm.test('Login successful', function () {",
+                  "        pm.expect(response.success).to.be.true;",
+                  "        pm.expect(response.data.user).to.have.property('email');",
+                  "        pm.expect(response.data.token).to.be.a('string');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/me",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Profile retrieved successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "    pm.expect(response.data.user).to.have.property('id');",
+                  "    pm.expect(response.data.user).to.have.property('email');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Google OAuth Redirect",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/google?redirect=http://localhost:3000/dashboard",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "google"],
+              "query": [
+                {
+                  "key": "redirect",
+                  "value": "http://localhost:3000/dashboard"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🃏 Cards",
+      "item": [
+        {
+          "name": "Get Card by QR Token",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/api/cards/:qrToken",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "cards", ":qrToken"],
+              "variable": [
+                {
+                  "key": "qrToken",
+                  "value": "ABC123DEF456",
+                  "description": "Replace with actual QR token"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Card retrieved successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "    pm.expect(response.data.card).to.have.property('songName');",
+                  "    pm.expect(response.data.card).to.have.property('artist');",
+                  "    pm.expect(response.data.card).to.have.property('deck');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Play Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gameMode\": \"competitive\",\n  \"userKnew\": true\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/cards/:cardId/play",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "cards", ":cardId", "play"],
+              "variable": [
+                {
+                  "key": "cardId",
+                  "value": "1",
+                  "description": "Replace with actual card ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reveal Card Answer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gameMode\": \"competitive\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/cards/:cardId/reveal",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "cards", ":cardId", "reveal"],
+              "variable": [
+                {
+                  "key": "cardId",
+                  "value": "1",
+                  "description": "Replace with actual card ID"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎮 Game",
+      "item": [
+        {
+          "name": "Get Active Competitive Game",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/game/active-competitive/:deckId",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "game", "active-competitive", ":deckId"],
+              "variable": [
+                {
+                  "key": "deckId",
+                  "value": "1",
+                  "description": "Replace with actual deck ID"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('gameId', response.data.game.id);",
+                  "    pm.test('Active game retrieved', function () {",
+                  "        pm.expect(response.success).to.be.true;",
+                  "        pm.expect(response.data.game).to.have.property('id');",
+                  "        pm.expect(response.data.game).to.have.property('participants');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Competitive Game",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deckId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/game/start-competitive",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "game", "start-competitive"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('gameId', response.data.game.id);",
+                  "    pm.test('Game started successfully', function () {",
+                  "        pm.expect(response.success).to.be.true;",
+                  "        pm.expect(response.data.game).to.have.property('id');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Competitive Round",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"participantName\": \"Test User\",\n  \"cardId\": 1,\n  \"songCorrect\": true,\n  \"artistCorrect\": true,\n  \"albumCorrect\": false,\n  \"points\": 7\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/game/:gameId/submit-competitive-round",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "game", ":gameId", "submit-competitive-round"],
+              "variable": [
+                {
+                  "key": "gameId",
+                  "value": "{{gameId}}",
+                  "description": "Game ID from previous requests"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎯 Decks",
+      "item": [
+        {
+          "name": "Get All Decks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/api/decks",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "decks"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Decks retrieved successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "    pm.expect(response.data.decks).to.be.an('array');",
+                  "    if (response.data.decks.length > 0) {",
+                  "        pm.environment.set('deckId', response.data.decks[0].id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Activate Deck",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/decks/:deckId/activate",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "decks", ":deckId", "activate"],
+              "variable": [
+                {
+                  "key": "deckId",
+                  "value": "1",
+                  "description": "Replace with actual deck ID"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏆 Rankings",
+      "item": [
+        {
+          "name": "Get Deck Rankings",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/api/rankings/:deckId?limit=10",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "rankings", ":deckId"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "deckId",
+                  "value": "1",
+                  "description": "Replace with actual deck ID"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Rankings retrieved successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "    pm.expect(response.data.rankings).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "👨‍💼 Admin",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@oldlymusic.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/admin/login",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "admin", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('admin_token', response.data.token);",
+                  "    pm.test('Admin login successful', function () {",
+                  "        pm.expect(response.success).to.be.true;",
+                  "        pm.expect(response.data.admin).to.have.property('email');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/admin/stats",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "admin", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Export Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/admin/users/export?format=csv",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "admin", "users", "export"],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "csv"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔧 Health Check",
+      "item": [
+        {
+          "name": "API Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/api/health",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('API is healthy', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('status', 'OK');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Add timestamp to requests",
+          "pm.environment.set('timestamp', new Date().toISOString());"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test for response time",
+          "pm.test('Response time is less than 5000ms', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});",
+          "",
+          "// Global test for content type (if JSON expected)",
+          "if (pm.response.headers.get('Content-Type') && pm.response.headers.get('Content-Type').includes('application/json')) {",
+          "    pm.test('Response is valid JSON', function () {",
+          "        pm.response.to.be.json;",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ]
+}

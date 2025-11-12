@@ -1,0 +1,63 @@
+{
+  "id": "oldly-music-box-env",
+  "name": "Oldly Music Box Environment",
+  "values": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:3001",
+      "enabled": true,
+      "type": "text"
+    },
+    {
+      "key": "FRONTEND_URL",
+      "value": "http://localhost:3000",
+      "enabled": true,
+      "type": "text"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "enabled": true,
+      "type": "secret"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "enabled": true,
+      "type": "secret"
+    },
+    {
+      "key": "gameId",
+      "value": "",
+      "enabled": true,
+      "type": "text"
+    },
+    {
+      "key": "deckId",
+      "value": "1",
+      "enabled": true,
+      "type": "text"
+    },
+    {
+      "key": "cardId",
+      "value": "1",
+      "enabled": true,
+      "type": "text"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "enabled": true,
+      "type": "text"
+    },
+    {
+      "key": "timestamp",
+      "value": "",
+      "enabled": true,
+      "type": "text"
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2024-01-01T00:00:00.000Z",
+  "_postman_exported_using": "Postman/10.20.0"
+}
