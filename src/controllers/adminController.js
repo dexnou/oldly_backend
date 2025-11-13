@@ -232,6 +232,10 @@ class AdminController {
   static async exportUsers(req, res) {
     try {
       const { format = 'json', startDate, endDate } = req.query;
+      
+      console.log('🔍 DEBUG - exportUsers called with query:', req.query);
+      console.log('🔍 DEBUG - format parameter:', format);
+      console.log('🔍 DEBUG - typeof format:', typeof format);
 
       const whereCondition = {};
       
@@ -304,34 +308,56 @@ class AdminController {
       );
 
       if (format === 'csv') {
-        // Generate CSV with proper escaping
-        const csvHeader = 'ID,Nombre,Apellido,Email,WhatsApp,Fecha Registro,Último Login,Activo,Google Auth,Puntos Totales,Juegos Totales,Mazos,Juegos Iniciados\n';
-        
+        console.log('🔍 DEBUG - Generating CSV format');
+        // Use semicolon as separator for compatibility with Excel in many locales
+        const sep = ';'
+        // Optional Excel-friendly hint line (some locales honor this) - commented out by default
+        // const excelSepLine = `sep=${sep}\r\n`;
+        const csvHeader = ['ID','Nombre','Apellido','Email','WhatsApp','Fecha Registro','Último Login','Activo','Google Auth','Puntos Totales','Juegos Totales','Mazos','Juegos Iniciados'].join(sep) + '\r\n';
+
+        const escapeCSVField = (field) => {
+          if (field === null || field === undefined) return '';
+          const str = String(field);
+          // If field contains separator, newline or quote, wrap in quotes and escape internal quotes
+          if (str.includes(sep) || /[\n\r"]/g.test(str)) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        };
+
         const csvRows = usersWithStats.map(user => {
-          const row = [
-            user.id,
-            `"${(user.firstname || '').replace(/"/g, '""')}"`,
-            `"${(user.lastname || '').replace(/"/g, '""')}"`,
-            `"${user.email.replace(/"/g, '""')}"`,
-            `"${(user.whatsapp || '').replace(/"/g, '""')}"`,
-            user.createdAt.toISOString(),
-            user.lastLoginAt ? user.lastLoginAt.toISOString() : '',
-            user.isActive ? 'Sí' : 'No',
-            user.hasGoogleAuth ? 'Sí' : 'No',
-            user.stats.totalPoints,
-            user.stats.totalGames,
-            user.stats.decksOwned,
-            user.stats.gamesStarted
-          ];
-          return row.join(',');
+          return [
+            escapeCSVField(user.id),
+            escapeCSVField(user.firstname || ''),
+            escapeCSVField(user.lastname || ''),
+            escapeCSVField(user.email || ''),
+            escapeCSVField(user.whatsapp || ''),
+            escapeCSVField(user.createdAt ? user.createdAt.toISOString().split('T')[0] : ''),
+            escapeCSVField(user.lastLoginAt ? user.lastLoginAt.toISOString().split('T')[0] : ''),
+            escapeCSVField(user.isActive ? 'Sí' : 'No'),
+            escapeCSVField(user.hasGoogleAuth ? 'Sí' : 'No'),
+            escapeCSVField(user.stats.totalPoints),
+            escapeCSVField(user.stats.totalGames),
+            escapeCSVField(user.stats.decksOwned),
+            escapeCSVField(user.stats.gamesStarted)
+          ].join(sep);
         });
 
-        const csvContent = csvHeader + csvRows.join('\n');
+        const csvContent = csvHeader + csvRows.join('\r\n');
+
+        console.log('🔍 DEBUG - CSV content length:', csvContent.length);
+        console.log('🔍 DEBUG - CSV content preview:', csvContent.substring(0, 300));
+        console.log('🔍 DEBUG - Setting CSV headers...');
 
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename=usuarios_export.csv');
-        res.send('\ufeff' + csvContent); // Add BOM for UTF-8
+        res.setHeader('Content-Disposition', 'attachment; filename="usuarios_export.csv"');
+        res.setHeader('Cache-Control', 'no-cache');
+        
+        // Send CSV with BOM for proper Excel encoding
+        res.send('\uFEFF' + csvContent);
+        console.log('🔍 DEBUG - CSV response sent');
       } else {
+        console.log('🔍 DEBUG - Generating JSON format');
         // Return JSON formatted
         const jsonData = {
           success: true,
