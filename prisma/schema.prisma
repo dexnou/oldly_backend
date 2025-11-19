@@ -20,9 +20,12 @@ model User {
   updatedAt    DateTime   @updatedAt @map("updated_at")
   lastLoginAt  DateTime?  @map("last_login_at")
   isActive     Boolean    @default(true) @map("is_active")
+  
+  // Relaciones
   games        Game[]
   rankings     Ranking[]
   userDecks    UserDeck[]
+  ownedRooms   Room[]     // Relación añadida para las salas creadas
 
   @@map("users")
 }
@@ -68,31 +71,36 @@ model Deck {
   active      Boolean    @default(true)
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
+  
+  // Relaciones
   cards       Card[]
   games       Game[]
   rankings    Ranking[]
   userDecks   UserDeck[]
+  rooms       Room[]     // Relación añadida para las salas
 
   @@index([theme])
   @@map("decks")
 }
 
 model Card {
-  id                    Int                    @id @default(autoincrement()) @db.UnsignedInt
-  deckId                Int                    @map("deck_id") @db.UnsignedInt
-  artistId              Int                    @map("artist_id") @db.UnsignedInt
-  albumId               Int?                   @map("album_id") @db.UnsignedInt
-  songName              String                 @map("song_name") @db.VarChar(150)
-  qrCode                String                 @map("qr_code") @db.Text
-  qrToken               String                 @unique @map("qr_token") @db.Char(16)
-  previewUrl            String?                @map("preview_url") @db.VarChar(255)
-  spotifyUrl            String?                @map("spotify_url") @db.VarChar(255)
-  difficulty            Difficulty             @default(medium)
-  createdAt             DateTime               @default(now()) @map("created_at")
-  updatedAt             DateTime               @updatedAt @map("updated_at")
-  album                 Album?                 @relation(fields: [albumId], references: [id])
-  artist                Artist                 @relation(fields: [artistId], references: [id])
-  deck                  Deck                   @relation(fields: [deckId], references: [id])
+  id                    Int      @id @default(autoincrement()) @db.UnsignedInt
+  deckId                Int      @map("deck_id") @db.UnsignedInt
+  artistId              Int      @map("artist_id") @db.UnsignedInt
+  albumId               Int?     @map("album_id") @db.UnsignedInt
+  songName              String   @map("song_name") @db.VarChar(150)
+  qrCode                String   @map("qr_code") @db.Text
+  qrToken               String   @unique @map("qr_token") @db.Char(16)
+  previewUrl            String?  @map("preview_url") @db.VarChar(255)
+  spotifyUrl            String?  @map("spotify_url") @db.VarChar(255)
+  difficulty            Difficulty @default(medium)
+  createdAt             DateTime   @default(now()) @map("created_at")
+  updatedAt             DateTime   @updatedAt @map("updated_at")
+  
+  album                 Album?   @relation(fields: [albumId], references: [id])
+  artist                Artist   @relation(fields: [artistId], references: [id])
+  deck                  Deck     @relation(fields: [deckId], references: [id])
+  
   gameParticipantRounds GameParticipantRound[]
   gameRounds            GameRound[]
 
@@ -128,6 +136,7 @@ model Game {
   totalRounds  Int               @default(0) @map("total_rounds")
   startedAt    DateTime          @default(now()) @map("started_at")
   endedAt      DateTime?         @map("ended_at")
+  
   participants GameParticipant[]
   rounds       GameRound[]
   deck         Deck              @relation(fields: [deckId], references: [id])
@@ -139,14 +148,16 @@ model Game {
 }
 
 model GameParticipant {
-  id          Int                    @id @default(autoincrement()) @db.UnsignedInt
-  gameId      Int                    @map("game_id") @db.UnsignedInt
-  name        String                 @db.VarChar(80)
-  totalPoints Int                    @default(0) @map("total_points")
-  totalRounds Int                    @default(0) @map("total_rounds")
-  createdAt   DateTime               @default(now()) @map("created_at")
+  id          Int          @id @default(autoincrement()) @db.UnsignedInt
+  gameId      Int          @map("game_id") @db.UnsignedInt
+  name        String       @db.VarChar(80)
+  totalPoints Int          @default(0) @map("total_points")
+  totalRounds Int          @default(0) @map("total_rounds")
+  turnOrder   Int          @default(0) @map("turn_order") // Agregado según SQL
+  createdAt   DateTime     @default(now()) @map("created_at")
+  
   rounds      GameParticipantRound[]
-  game        Game                   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  game        Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
 
   @@unique([gameId, name])
   @@index([gameId])
@@ -162,6 +173,7 @@ model GameRound {
   albumCorrect  Boolean  @default(false) @map("album_correct")
   points        Int      @default(0) @db.TinyInt
   playedAt      DateTime @default(now()) @map("played_at")
+  
   card          Card     @relation(fields: [cardId], references: [id])
   game          Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
 
@@ -180,6 +192,7 @@ model GameParticipantRound {
   albumCorrect  Boolean         @default(false) @map("album_correct")
   points        Int             @default(0) @db.TinyInt
   playedAt      DateTime        @default(now()) @map("played_at")
+  
   card          Card            @relation(fields: [cardId], references: [id])
   participant   GameParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
@@ -203,6 +216,26 @@ model Ranking {
   @@unique([userId, deckId])
   @@index([deckId, pointsTotal(sort: Desc)])
   @@map("rankings")
+}
+
+// NUEVO MODELO ROOM SEGÚN TU SQL
+model Room {
+  id         Int      @id @default(autoincrement()) @db.UnsignedInt
+  token      String   @unique @db.Char(8)
+  ownerId    Int      @map("owner_id") @db.UnsignedInt
+  deckId     Int      @map("deck_id") @db.UnsignedInt
+  mode       GameMode @default(casual)
+  maxPlayers Int      @default(8) @map("max_players")
+  createdAt  DateTime @default(now()) @map("created_at")
+  expiresAt  DateTime @map("expires_at")
+  metadata   Json?
+  
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  deck       Deck     @relation(fields: [deckId], references: [id])
+
+  @@index([ownerId])
+  @@index([deckId])
+  @@map("rooms")
 }
 
 model AdminUser {
@@ -230,10 +263,11 @@ enum UserDeckSource {
 }
 
 enum GameMode {
-  casual      // Sin puntaje, solo ver respuestas
-  competitive // Con puntaje, múltiples jugadores
-  simple      // Mantener para compatibilidad
-  score       // Mantener para compatibilidad
+  casual            // Sin puntaje
+  competitive       // Puntos + Scoreboard
+  competitive_turns // Nuevo en SQL: Turnos
+  simple            // Legacy
+  score             // Legacy
 }
 
 enum GameStatus {

@@ -718,7 +718,7 @@ class GameController {
     }
   }
 
-  // GET /api/game/:id (bonus endpoint to get game status)
+  // GET /api/game/:id
   static async getGame(req, res) {
     try {
       const { id: gameId } = req.params;
@@ -805,11 +805,12 @@ class GameController {
       }
 
       // Find active competitive game for this user in this specific deck
+      // UPDATED: Aceptamos tanto 'competitive' como 'competitive_turns'
       const activeGame = await prisma.game.findFirst({
         where: {
           userId: parseInt(userId),
           deckId: parseInt(deckId),
-          mode: 'competitive',
+          mode: { in: ['competitive', 'competitive_turns'] },
           status: 'started'
         },
         include: {
@@ -825,10 +826,11 @@ class GameController {
               id: true,
               name: true,
               totalPoints: true,
-              totalRounds: true
+              totalRounds: true,
+              turnOrder: true
             },
             orderBy: {
-              totalPoints: 'desc'
+              turnOrder: 'asc' // IMPORTANTE: Ordenar por turno para consistencia
             }
           }
         }
@@ -863,6 +865,20 @@ class GameController {
         });
       }
 
+      // LÓGICA DE TURNOS (NUEVO)
+      let currentTurnParticipantId = null;
+      let nextTurnParticipantId = null;
+
+      if (activeGame.mode === 'competitive_turns' && activeGame.participants.length > 0) {
+        const totalParticipants = activeGame.participants.length;
+        // El turno actual es el resto de la división de rondas totales entre participantes
+        const currentTurnIndex = activeGame.totalRounds % totalParticipants;
+        const nextTurnIndex = (activeGame.totalRounds + 1) % totalParticipants;
+
+        currentTurnParticipantId = activeGame.participants[currentTurnIndex].id.toString();
+        nextTurnParticipantId = activeGame.participants[nextTurnIndex].id.toString();
+      }
+
       res.json({
         success: true,
         message: 'Active competitive game found for this deck',
@@ -874,6 +890,8 @@ class GameController {
             totalPoints: activeGame.totalPoints,
             totalRounds: activeGame.totalRounds,
             startedAt: activeGame.startedAt,
+            currentTurnParticipantId, // ID de quien juega AHORA
+            nextTurnParticipantId,    // ID de quien juega DESPUÉS
             deck: {
               id: activeGame.deck.id.toString(),
               title: activeGame.deck.title,
@@ -883,7 +901,9 @@ class GameController {
               id: p.id.toString(),
               name: p.name,
               totalPoints: p.totalPoints,
-              totalRounds: p.totalRounds
+              totalRounds: p.totalRounds,
+              turnOrder: p.turnOrder,
+              isMyTurn: activeGame.mode === 'competitive_turns' && p.id.toString() === currentTurnParticipantId
             }))
           }
         }
@@ -905,8 +925,18 @@ class GameController {
   // POST /api/game/start-competitive
   static async startCompetitive(req, res) {
     try {
-      const { deckId, participants = [] } = req.body;
+      // UPDATED: Ahora recibimos "mode" (opcional, por defecto "competitive")
+      const { deckId, participants = [], mode = 'competitive' } = req.body;
       const userId = req.user.id;
+
+      // Validar que el modo sea uno de los permitidos para competencia
+      if (!['competitive', 'competitive_turns'].includes(mode)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Modo de juego inválido. Debe ser "competitive" o "competitive_turns"',
+          errorCode: 'INVALID_GAME_MODE'
+        });
+      }
 
       // Validate deckId
       if (!deckId || isNaN(parseInt(deckId))) {
@@ -1047,16 +1077,18 @@ class GameController {
         }
       }
 
-      // Create competitive game
+      // Create competitive game with mode and turn order
       const game = await prisma.game.create({
         data: {
           userId: parseInt(userId),
           deckId: parseInt(deckId),
-          mode: 'competitive',
+          mode: mode, // Usamos el modo recibido
           status: 'started',
           participants: {
-            create: participants.map(p => ({
-              name: p.name.trim()
+            create: participants.map((p, index) => ({
+              name: p.name.trim(),
+              // Si es por turnos, guardamos el índice como orden. Si no, 0.
+              turnOrder: mode === 'competitive_turns' ? index : 0
             }))
           }
         },
@@ -1076,23 +1108,28 @@ class GameController {
               id: true,
               name: true,
               totalPoints: true,
-              totalRounds: true
+              totalRounds: true,
+              turnOrder: true
             },
             orderBy: {
-              createdAt: 'asc'
+              turnOrder: 'asc' // Importante ordenar por turnOrder
             }
           }
         }
       });
 
+      // Calcular de quién es el primer turno (siempre es el índice 0 al inicio)
+      const currentTurnParticipantId = mode === 'competitive_turns' ? game.participants[0].id.toString() : null;
+
       res.status(201).json({
         success: true,
-        message: 'Juego competitivo iniciado exitosamente',
+        message: `Juego ${mode === 'competitive_turns' ? 'por turnos' : 'competitivo'} iniciado exitosamente`,
         data: {
           game: {
             id: game.id.toString(),
             mode: game.mode,
             status: game.status,
+            currentTurnParticipantId, // Dato extra para el frontend
             totalPoints: game.totalPoints,
             totalRounds: game.totalRounds,
             startedAt: game.startedAt,
@@ -1106,7 +1143,8 @@ class GameController {
               id: p.id.toString(),
               name: p.name,
               totalPoints: p.totalPoints,
-              totalRounds: p.totalRounds
+              totalRounds: p.totalRounds,
+              turnOrder: p.turnOrder
             }))
           }
         }
@@ -1469,7 +1507,220 @@ class GameController {
       });
     }
   }
+  
+  // POST /api/game/:id/submit-turn-round
+  static async submitTurnBasedRound(req, res) {
+    try {
+      const { id: gameId } = req.params;
+      const { cardId, participantId, userKnew = {} } = req.body;
+      const userId = req.user.id;
 
+      // 1. Validar Inputs
+      if (!cardId || isNaN(parseInt(cardId))) {
+        return res.status(400).json({
+          success: false,
+          message: 'ID de carta inválido',
+          errorCode: 'INVALID_CARD_ID'
+        });
+      }
+
+      if (!participantId || isNaN(parseInt(participantId))) {
+        return res.status(400).json({
+          success: false,
+          message: 'ID de participante inválido',
+          errorCode: 'INVALID_PARTICIPANT_ID'
+        });
+      }
+
+      // 2. Buscar el juego y verificar propiedad
+      const game = await prisma.game.findUnique({
+        where: { 
+          id: parseInt(gameId),
+          userId: parseInt(userId), 
+          status: 'started'
+        },
+        include: {
+          participants: {
+            orderBy: { turnOrder: 'asc' } // Crucial para el cálculo de turnos
+          },
+          deck: { select: { id: true } }
+        }
+      });
+
+      if (!game) {
+        return res.status(404).json({
+          success: false,
+          message: 'Juego no encontrado o ya finalizado',
+          errorCode: 'GAME_NOT_FOUND'
+        });
+      }
+
+      if (game.mode !== 'competitive_turns') {
+        return res.status(400).json({
+          success: false,
+          message: 'Este endpoint es solo para juegos por turnos',
+          errorCode: 'INVALID_GAME_MODE'
+        });
+      }
+
+      // 3. Validar Carta
+      const card = await prisma.card.findUnique({
+        where: { id: parseInt(cardId) },
+        include: { artist: true, album: true }
+      });
+
+      if (!card) {
+        return res.status(404).json({
+          success: false,
+          message: 'Carta no encontrada',
+          errorCode: 'CARD_NOT_FOUND'
+        });
+      }
+
+      if (card.deckId !== game.deckId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Esta carta no pertenece al mazo del juego actual',
+          errorCode: 'CARD_DECK_MISMATCH'
+        });
+      }
+
+      // 4. VALIDAR TURNO: ¿Es realmente el turno de este participante?
+      const totalParticipants = game.participants.length;
+      // El índice esperado se calcula con el total de rondas acumuladas del juego
+      const expectedTurnIndex = game.totalRounds % totalParticipants;
+      const expectedParticipant = game.participants[expectedTurnIndex];
+
+      if (expectedParticipant.id !== parseInt(participantId)) {
+        return res.status(400).json({
+          success: false,
+          message: `No es el turno de este jugador. Le toca a ${expectedParticipant.name}`,
+          errorCode: 'WRONG_TURN',
+          data: {
+            expectedParticipantId: expectedParticipant.id.toString(),
+            expectedParticipantName: expectedParticipant.name
+          }
+        });
+      }
+
+      // 5. Validar si el participante ya jugó esta carta específica (seguridad extra)
+      const existingRound = await prisma.gameParticipantRound.findFirst({
+        where: {
+          participantId: parseInt(participantId),
+          cardId: parseInt(cardId)
+        }
+      });
+
+      if (existingRound) {
+        return res.status(400).json({
+          success: false,
+          message: 'Este participante ya jugó esta carta',
+          errorCode: 'CARD_ALREADY_PLAYED'
+        });
+      }
+
+      // 6. Calcular Puntos (Lógica reutilizada)
+      const {
+        songKnew = false,
+        artistKnew = false,
+        albumKnew = false
+      } = userKnew;
+
+      let points = 0;
+      let pointsBreakdown = { song: 0, artist: 0, album: 0, difficultyBonus: 0 };
+
+      if (songKnew) { points += 1; pointsBreakdown.song = 1; }
+      if (artistKnew) { points += 1; pointsBreakdown.artist = 1; }
+      if (albumKnew && card.album) { points += 1; pointsBreakdown.album = 1; }
+
+      // Multiplicador de dificultad
+      let difficultyMultiplier = 1;
+      switch (card.difficulty) {
+        case 'medium': difficultyMultiplier = 1.5; break;
+        case 'hard': difficultyMultiplier = 2; break;
+      }
+
+      if (points > 0) {
+        const bonus = Math.round((points * difficultyMultiplier) - points);
+        points = Math.round(points * difficultyMultiplier);
+        pointsBreakdown.difficultyBonus = bonus;
+      }
+
+      // 7. Transacción: Guardar ronda, actualizar jugador y AVANZAR EL TURNO DEL JUEGO
+      await prisma.$transaction(async (tx) => {
+        // a. Guardar la ronda del participante
+        await tx.gameParticipantRound.create({
+          data: {
+            participantId: parseInt(participantId),
+            cardId: parseInt(cardId),
+            songCorrect: songKnew,
+            artistCorrect: artistKnew,
+            albumCorrect: albumKnew,
+            points: points
+          }
+        });
+
+        // b. Sumar puntos al participante
+        await tx.gameParticipant.update({
+          where: { id: parseInt(participantId) },
+          data: {
+            totalPoints: { increment: points },
+            totalRounds: { increment: 1 }
+          }
+        });
+
+        // c. Actualizar juego: Sumar puntos totales Y AVANZAR RONDA (esto cambia el turno)
+        await tx.game.update({
+          where: { id: parseInt(gameId) },
+          data: {
+            totalPoints: { increment: points },
+            totalRounds: { increment: 1 } // <--- ESTO ES LO QUE PASA EL TURNO AL SIGUIENTE
+          }
+        });
+      });
+
+      // 8. Calcular quién sigue para responder al frontend
+      const nextTurnIndex = (game.totalRounds + 1) % totalParticipants;
+      const nextParticipant = game.participants[nextTurnIndex];
+
+      // Recargar datos actualizados para responder
+      const updatedGame = await prisma.game.findUnique({
+        where: { id: parseInt(gameId) },
+        select: { totalPoints: true, totalRounds: true }
+      });
+
+      res.json({
+        success: true,
+        message: 'Turno finalizado correctamente',
+        data: {
+          round: {
+            participantId: participantId.toString(),
+            pointsEarned: points,
+            pointsBreakdown,
+            answers: { songKnew, artistKnew, albumKnew }
+          },
+          game: {
+            totalPoints: updatedGame.totalPoints,
+            totalRounds: updatedGame.totalRounds,
+            nextTurn: {
+              participantId: nextParticipant.id.toString(),
+              participantName: nextParticipant.name
+            }
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Error en turno:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        errorCode: 'INTERNAL_ERROR',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  }
+  
   // POST /api/game/score-card
   static async scoreCard(req, res) {
     try {

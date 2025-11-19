@@ -17,7 +17,19 @@ async function main() {
   console.log('🌱 Starting database seeding...');
 
   try {
-    // 1. Crear usuario administrador Noah
+    // 🧹 1. LIMPIEZA PREVIA
+    console.log('🧹 Cleaning up old data...');
+    await prisma.gameParticipantRound.deleteMany({});
+    await prisma.gameParticipant.deleteMany({});
+    await prisma.gameRound.deleteMany({});
+    await prisma.game.deleteMany({});
+    await prisma.ranking.deleteMany({});
+    await prisma.userDeck.deleteMany({});
+    await prisma.card.deleteMany({});
+    await prisma.deck.deleteMany({});
+    console.log('✨ Database cleaned.');
+
+    // 👤 2. Crear usuario administrador
     console.log('👤 Creating admin user Noah...');
     const hashedPassword = await bcrypt.hash('noah123admin', 12);
     
@@ -33,571 +45,123 @@ async function main() {
     });
     console.log(`✅ Admin user created: ${adminUser.email}`);
 
-    // 2. Crear los 2 mazos principales
+    // 📦 3. Crear los mazos (AHORA SIN ERROR DE QR)
     console.log('📦 Creating decks...');
     
-    const deck80s = await prisma.deck.upsert({
-      where: { title: 'Oldly Fun 80s' },
-      update: {},
-      create: {
+    const deck80s = await prisma.deck.create({
+      data: {
         title: 'Oldly Fun 80s',
-        description: 'Los mejores hits de los años 80 que marcaron una época. Un viaje nostálgico a través de la música más icónica de la década.',
+        description: 'Los mejores hits de los años 80 que marcaron una época en Argentina.',
         theme: '80s',
         buyLink: 'https://oldly.com/buy/80s-deck',
         coverImage: 'https://oldly.com/images/80s-deck-cover.jpg',
+        // Eliminamos qrToken y qrCode aquí porque el modelo Deck ya no los tiene
         active: true
       }
     });
 
-    const deckMovies = await prisma.deck.upsert({
-      where: { title: 'Oldly Fun Movies' },
-      update: {},
-      create: {
+    const deckMovies = await prisma.deck.create({
+      data: {
         title: 'Oldly Fun Movies',
-        description: 'Bandas sonoras icónicas del cine que todos recordamos. Las canciones que hicieron historia en la gran pantalla.',
+        description: 'Bandas sonoras icónicas del cine.',
         theme: 'movies',
         buyLink: 'https://oldly.com/buy/movies-deck',
         coverImage: 'https://oldly.com/images/movies-deck-cover.jpg',
+        // Eliminamos qrToken y qrCode aquí también
         active: true
       }
     });
 
-    console.log(`✅ Deck created: ${deck80s.title}`);
-    console.log(`✅ Deck created: ${deckMovies.title}`);
+    console.log(`✅ Decks created: ${deck80s.title}, ${deckMovies.title}`);
 
-    // 3. Agregar canciones de ejemplo
-    console.log('🎵 Adding sample songs...');
+    // 🎵 4. LISTA DE CANCIONES
+    const songsData = [
+      { artist: 'Soda Stereo', song: 'De música ligera', year: 1990, genre: 'Rock Pop', difficulty: 'medium' },
+      { artist: 'Charly García', song: 'Demoliendo hoteles', year: 1984, genre: 'Rock Urbano', difficulty: 'medium' },
+      { artist: 'Los Abuelos de la Nada', song: 'Mil horas', year: 1983, genre: 'Pop Rock', difficulty: 'easy' },
+      { artist: 'Fito Páez', song: 'Alarma entre los ángeles', year: 1985, genre: 'Pop Rock', difficulty: 'hard' },
+      { artist: 'Sumo', song: 'Divididos por la felicidad', year: 1985, genre: 'Rock Alternativo', difficulty: 'hard' },
+      { artist: 'Patricio Rey y sus Redonditos de Ricota', song: 'Ji ji ji', year: 1986, genre: 'Rock Nacional', difficulty: 'medium' },
+      { artist: 'Enanitos Verdes', song: 'La muralla verde', year: 1986, genre: 'Pop Rock', difficulty: 'easy' },
+      { artist: 'Charly García', song: 'Fanky', year: 1989, genre: 'Funk Rock', difficulty: 'medium' },
+      { artist: 'Soda Stereo', song: 'Persiana americana', year: 1986, genre: 'Rock Pop', difficulty: 'medium' },
+      { artist: 'Virus', song: 'Una luna de miel en la mano', year: 1985, genre: 'Pop Electrónico', difficulty: 'medium' },
+      { artist: 'Los Abuelos de la Nada', song: 'Costumbres argentinas', year: 1985, genre: 'Rock Ligero', difficulty: 'easy' },
+      { artist: 'Fito Páez', song: 'Mariposa Tecknicolor', year: 1994, genre: 'Pop Rock', difficulty: 'easy' }
+    ];
 
-    // Canción para el deck de 80s: Soda Stereo
-    const artistSoda = await prisma.artist.upsert({
-      where: { 
-        name_country: {
-          name: 'Soda Stereo',
-          country: 'Argentina'
+    // 🔄 5. Procesar y crear cartas
+    console.log('🎵 Adding songs to database...');
+
+    for (const data of songsData) {
+      // a) Crear/Encontrar Artista
+      const artist = await prisma.artist.upsert({
+        where: { 
+          name_country: {
+            name: data.artist,
+            country: 'Argentina'
+          }
+        },
+        update: {},
+        create: {
+          name: data.artist,
+          country: 'Argentina',
+          genre: data.genre
         }
-      },
-      update: {},
-      create: {
-        name: 'Soda Stereo',
-        country: 'Argentina',
-        genre: 'Rock Pop'
-      }
-    });
+      });
 
-    const albumSoda = await prisma.album.upsert({
-      where: {
-        artistId_title_releaseYear: {
-          artistId: artistSoda.id,
-          title: 'Nada Personal',
-          releaseYear: 1985
-        }
-      },
-      update: {},
-      create: {
-        artistId: artistSoda.id,
-        title: 'Nada Personal',
-        releaseYear: 1985,
-        coverUrl: 'https://oldly.com/images/albums/nada-personal.jpg'
-      }
-    });
-
-    const qrTokenSoda = generateQRToken();
-    const cardSoda = await prisma.card.upsert({
-      where: {
-        deckId_songName: {
-          deckId: deck80s.id,
-          songName: 'De música ligera'
-        }
-      },
-      update: {},
-      create: {
-        deckId: deck80s.id,
-        artistId: artistSoda.id,
-        albumId: albumSoda.id,
-        songName: 'De música ligera',
-        qrCode: `https://oldly.com/play/${qrTokenSoda}`,
-        qrToken: qrTokenSoda,
-        previewUrl: null,
-        difficulty: 'medium'
-      }
-    });
-
-    console.log(`✅ 80s song added: ${cardSoda.songName} by ${artistSoda.name}`);
-
-    // Canción para el deck de Movies: Charly García
-    const artistCharly = await prisma.artist.upsert({
-      where: { 
-        name_country: {
-          name: 'Charly García',
-          country: 'Argentina'
-        }
-      },
-      update: {},
-      create: {
-        name: 'Charly García',
-        country: 'Argentina',
-        genre: 'Rock'
-      }
-    });
-
-    const albumCharly = await prisma.album.upsert({
-      where: {
-        artistId_title_releaseYear: {
-          artistId: artistCharly.id,
-          title: 'Clics Modernos',
-          releaseYear: 1983
-        }
-      },
-      update: {},
-      create: {
-        artistId: artistCharly.id,
-        title: 'Clics Modernos',
-        releaseYear: 1983,
-        coverUrl: 'https://oldly.com/images/albums/clics-modernos.jpg'
-      }
-    });
-
-    const qrTokenCharly = generateQRToken();
-    const cardCharly = await prisma.card.upsert({
-      where: {
-        deckId_songName: {
-          deckId: deckMovies.id,
-          songName: 'Demoliendo hoteles'
-        }
-      },
-      update: {},
-      create: {
-        deckId: deckMovies.id,
-        artistId: artistCharly.id,
-        albumId: albumCharly.id,
-        songName: 'Demoliendo hoteles',
-        qrCode: `https://oldly.com/play/${qrTokenCharly}`,
-        qrToken: qrTokenCharly,
-        previewUrl: null,
-        difficulty: 'medium'
-      }
-    });
-
-    console.log(`✅ Movie song added: ${cardCharly.songName} by ${artistCharly.name}`);
-
-    // 4. Agregar más canciones argentinas de los 80s
-    console.log('🎵 Adding more 80s Argentine songs...');
-
-    // 4. Los Abuelos de la Nada - "Mil horas" (1983)
-    const artistAbuelos = await prisma.artist.upsert({
-      where: { 
-        name_country: {
-          name: 'Los Abuelos de la Nada',
-          country: 'Argentina'
-        }
-      },
-      update: {},
-      create: {
-        name: 'Los Abuelos de la Nada',
-        country: 'Argentina',
-        genre: 'Pop Rock'
-      }
-    });
-
-    const albumAbuelos = await prisma.album.upsert({
-      where: {
-        artistId_title_releaseYear: {
-          artistId: artistAbuelos.id,
-          title: 'Los Abuelos de la Nada',
-          releaseYear: 1983
-        }
-      },
-      update: {},
-      create: {
-        artistId: artistAbuelos.id,
-        title: 'Los Abuelos de la Nada',
-        releaseYear: 1983,
-        coverUrl: 'https://oldly.com/images/albums/abuelos-nada.jpg'
-      }
-    });
-
-    const qrTokenAbuelos = generateQRToken();
-    const cardAbuelos = await prisma.card.upsert({
-      where: {
-        deckId_songName: {
-          deckId: deck80s.id,
-          songName: 'Mil horas'
-        }
-      },
-      update: {},
-      create: {
-        deckId: deck80s.id,
-        artistId: artistAbuelos.id,
-        albumId: albumAbuelos.id,
-        songName: 'Mil horas',
-        qrCode: `https://oldly.com/play/${qrTokenAbuelos}`,
-        qrToken: qrTokenAbuelos,
-        previewUrl: null,
-        difficulty: 'easy'
-      }
-    });
-    console.log(`✅ 80s song added: ${cardAbuelos.songName} by ${artistAbuelos.name}`);
-
-    // 5. Fito Páez - "Alarma entre los ángeles" (1985)
-    const artistFito = await prisma.artist.upsert({
-      where: { 
-        name_country: {
-          name: 'Fito Páez',
-          country: 'Argentina'
-        }
-      },
-      update: {},
-      create: {
-        name: 'Fito Páez',
-        country: 'Argentina',
-        genre: 'Pop Rock'
-      }
-    });
-
-    const albumFito = await prisma.album.upsert({
-      where: {
-        artistId_title_releaseYear: {
-          artistId: artistFito.id,
-          title: 'Del 63',
-          releaseYear: 1984
-        }
-      },
-      update: {},
-      create: {
-        artistId: artistFito.id,
-        title: 'Del 63',
-        releaseYear: 1984,
-        coverUrl: 'https://oldly.com/images/albums/del-63.jpg'
-      }
-    });
-
-    const qrTokenFito = generateQRToken();
-    const cardFito = await prisma.card.upsert({
-      where: {
-        deckId_songName: {
-          deckId: deck80s.id,
-          songName: 'Alarma entre los ángeles'
-        }
-      },
-      update: {},
-      create: {
-        deckId: deck80s.id,
-        artistId: artistFito.id,
-        albumId: albumFito.id,
-        songName: 'Alarma entre los ángeles',
-        qrCode: `https://oldly.com/play/${qrTokenFito}`,
-        qrToken: qrTokenFito,
-        previewUrl: null,
-        difficulty: 'medium'
-      }
-    });
-    console.log(`✅ 80s song added: ${cardFito.songName} by ${artistFito.name}`);
-
-    // 6. Sumo - "Divididos por la felicidad" (1985)
-    const artistSumo = await prisma.artist.upsert({
-      where: { 
-        name_country: {
-          name: 'Sumo',
-          country: 'Argentina'
-        }
-      },
-      update: {},
-      create: {
-        name: 'Sumo',
-        country: 'Argentina',
-        genre: 'Rock Alternativo'
-      }
-    });
-
-    const albumSumo = await prisma.album.upsert({
-      where: {
-        artistId_title_releaseYear: {
-          artistId: artistSumo.id,
-          title: 'Corpiños en la madrugada',
-          releaseYear: 1985
-        }
-      },
-      update: {},
-      create: {
-        artistId: artistSumo.id,
-        title: 'Corpiños en la madrugada',
-        releaseYear: 1985,
-        coverUrl: 'https://oldly.com/images/albums/corpinos-madrugada.jpg'
-      }
-    });
-
-    const qrTokenSumo = generateQRToken();
-    const cardSumo = await prisma.card.upsert({
-      where: {
-        deckId_songName: {
-          deckId: deck80s.id,
-          songName: 'Divididos por la felicidad'
-        }
-      },
-      update: {},
-      create: {
-        deckId: deck80s.id,
-        artistId: artistSumo.id,
-        albumId: albumSumo.id,
-        songName: 'Divididos por la felicidad',
-        qrCode: `https://oldly.com/play/${qrTokenSumo}`,
-        qrToken: qrTokenSumo,
-        previewUrl: null,
-        difficulty: 'hard'
-      }
-    });
-    console.log(`✅ 80s song added: ${cardSumo.songName} by ${artistSumo.name}`);
-
-    // 7. Patricio Rey y sus Redonditos de Ricota - "Ji ji ji" (1986)
-    const artistRedonditos = await prisma.artist.upsert({
-      where: { 
-        name_country: {
-          name: 'Patricio Rey y sus Redonditos de Ricota',
-          country: 'Argentina'
-        }
-      },
-      update: {},
-      create: {
-        name: 'Patricio Rey y sus Redonditos de Ricota',
-        country: 'Argentina',
-        genre: 'Rock Nacional'
-      }
-    });
-
-    const albumRedonditos = await prisma.album.upsert({
-      where: {
-        artistId_title_releaseYear: {
-          artistId: artistRedonditos.id,
-          title: 'Gulp!',
-          releaseYear: 1985
-        }
-      },
-      update: {},
-      create: {
-        artistId: artistRedonditos.id,
-        title: 'Gulp!',
-        releaseYear: 1985,
-        coverUrl: 'https://oldly.com/images/albums/gulp.jpg'
-      }
-    });
-
-    const qrTokenRedonditos = generateQRToken();
-    const cardRedonditos = await prisma.card.upsert({
-      where: {
-        deckId_songName: {
-          deckId: deck80s.id,
-          songName: 'Ji ji ji'
-        }
-      },
-      update: {},
-      create: {
-        deckId: deck80s.id,
-        artistId: artistRedonditos.id,
-        albumId: albumRedonditos.id,
-        songName: 'Ji ji ji',
-        qrCode: `https://oldly.com/play/${qrTokenRedonditos}`,
-        qrToken: qrTokenRedonditos,
-        previewUrl: null,
-        difficulty: 'hard'
-      }
-    });
-    console.log(`✅ 80s song added: ${cardRedonditos.songName} by ${artistRedonditos.name}`);
-
-    console.log('🎵 Ready to add more songs! Please provide the data in the following format:');
-    console.log('');
-    console.log('For 80s deck:');
-    console.log('- Artist Name');
-    console.log('- Album Name (optional)');
-    console.log('- Song Name');
-    console.log('- Release Year');
-    console.log('');
-    console.log('For Movies deck:');
-    console.log('- Movie Title');
-    console.log('- Artist Name');
-    console.log('- Song Name');
-    console.log('- Release Year');
-    console.log('');
-    
-    console.log('🎉 Basic seeding completed successfully!');
-    console.log('');
-    console.log('📊 Summary:');
-    console.log(`- Created admin user: noah@oldly.com (password: noah123admin)`);
-    console.log(`- Created deck: ${deck80s.title} (ID: ${deck80s.id})`);
-    console.log(`- Created deck: ${deckMovies.title} (ID: ${deckMovies.id})`);
-    console.log(`- Added sample songs:`);
-    console.log(`  • Soda Stereo - "De música ligera" (80s deck)`);
-    console.log(`  • Charly García - "Demoliendo hoteles" (Movies deck)`);
-    console.log('');
-    console.log('🔐 Admin login credentials:');
-    console.log('Email: noah@oldly.com');
-    console.log('Password: noah123admin');
-    console.log('');
-    console.log('📝 Next steps:');
-    console.log('1. Add more artist/song data using the helper functions');
-    console.log('2. Test the QR code flow with the generated cards');
-    console.log('3. Test the game mechanics (simple vs score mode)');
-
-  } catch (error) {
-    console.error('❌ Error during seeding:', error);
-    throw error;
-  }
-}
-
-// Función helper para agregar canciones después
-async function addSongs80s(songsData) {
-  const deck80s = await prisma.deck.findUnique({
-    where: { title: 'Oldly Fun 80s' }
-  });
-
-  if (!deck80s) {
-    throw new Error('80s deck not found');
-  }
-
-  console.log('🎵 Adding 80s songs...');
-
-  for (const songData of songsData) {
-    // Crear o encontrar artista
-    const artist = await prisma.artist.upsert({
-      where: { 
-        name_country: {
-          name: songData.artistName,
-          country: songData.country || 'USA'
-        }
-      },
-      update: {},
-      create: {
-        name: songData.artistName,
-        country: songData.country || 'USA',
-        genre: songData.genre || '80s'
-      }
-    });
-
-    // Crear álbum si se proporciona
-    let album = null;
-    if (songData.albumName) {
-      album = await prisma.album.upsert({
+      // b) Crear/Encontrar Álbum "Los 80's"
+      const album = await prisma.album.upsert({
         where: {
           artistId_title_releaseYear: {
             artistId: artist.id,
-            title: songData.albumName,
-            releaseYear: songData.releaseYear
+            title: "Los 80's",
+            releaseYear: data.year
           }
         },
         update: {},
         create: {
           artistId: artist.id,
-          title: songData.albumName,
-          releaseYear: songData.releaseYear,
-          coverUrl: `https://oldly.com/images/albums/${songData.albumName.toLowerCase().replace(/\s+/g, '-')}.jpg`
+          title: "Los 80's",
+          releaseYear: data.year,
+          coverUrl: 'https://oldly.com/images/albums/generic-80s.jpg'
         }
       });
+
+      // c) Crear Carta (ESTA SÍ LLEVA QR)
+      const qrToken = generateQRToken();
+      await prisma.card.create({
+        data: {
+          deckId: deck80s.id,
+          artistId: artist.id,
+          albumId: album.id,
+          songName: data.song,
+          qrCode: `https://oldly.com/play/${qrToken}`,
+          qrToken: qrToken,
+          previewUrl: null,
+          difficulty: data.difficulty,
+          spotifyUrl: `http://googleusercontent.com/spotify.com/7{encodeURIComponent(data.artist + ' ' + data.song)}`
+        }
+      });
+
+      console.log(`✨ Created: ${data.song} - ${data.artist}`);
     }
 
-    // Crear carta con QR único
-    const qrToken = generateQRToken();
-    const card = await prisma.card.upsert({
-      where: {
-        deckId_songName: {
-          deckId: deck80s.id,
-          songName: songData.songName
-        }
-      },
-      update: {},
-      create: {
-        deckId: deck80s.id,
-        artistId: artist.id,
-        albumId: album?.id || null,
-        songName: songData.songName,
-        qrCode: `https://oldly.com/play/${qrToken}`,
-        qrToken: qrToken,
-        previewUrl: null,  // Usaremos embed
-        difficulty: 'medium' // Default por ahora
-      }
-    });
+    console.log('');
+    console.log('🎉 Database seeding completed successfully!');
+    console.log(`📊 Total songs processed: ${songsData.length}`);
 
-    console.log(`✅ 80s song added: ${card.songName} by ${artist.name}`);
-  }
-}
-
-async function addSongsMovies(songsData) {
-  const deckMovies = await prisma.deck.findUnique({
-    where: { title: 'Oldly Fun Movies' }
-  });
-
-  if (!deckMovies) {
-    throw new Error('Movies deck not found');
-  }
-
-  console.log('🎬 Adding movie songs...');
-
-  for (const songData of songsData) {
-    // Crear o encontrar artista
-    const artist = await prisma.artist.upsert({
-      where: { 
-        name_country: {
-          name: songData.artistName,
-          country: songData.country || 'USA'
-        }
-      },
-      update: {},
-      create: {
-        name: songData.artistName,
-        country: songData.country || 'USA',
-        genre: songData.genre || 'Soundtrack'
-      }
-    });
-
-    // Crear álbum del soundtrack
-    const album = await prisma.album.upsert({
-      where: {
-        artistId_title_releaseYear: {
-          artistId: artist.id,
-          title: `${songData.movieTitle} (Original Soundtrack)`,
-          releaseYear: songData.releaseYear
-        }
-      },
-      update: {},
-      create: {
-        artistId: artist.id,
-        title: `${songData.movieTitle} (Original Soundtrack)`,
-        releaseYear: songData.releaseYear,
-        coverUrl: `https://oldly.com/images/movies/${songData.movieTitle.toLowerCase().replace(/\s+/g, '-')}-soundtrack.jpg`
-      }
-    });
-
-    // Crear carta con QR único
-    const qrToken = generateQRToken();
-    const card = await prisma.card.upsert({
-      where: {
-        deckId_songName: {
-          deckId: deckMovies.id,
-          songName: songData.songName
-        }
-      },
-      update: {},
-      create: {
-        deckId: deckMovies.id,
-        artistId: artist.id,
-        albumId: album.id,
-        songName: songData.songName,
-        qrCode: `https://oldly.com/play/${qrToken}`,
-        qrToken: qrToken,
-        previewUrl: null,  // Usaremos embed
-        difficulty: 'medium' // Default por ahora
-      }
-    });
-
-    console.log(`✅ Movie song added: ${card.songName} by ${artist.name} (${songData.movieTitle})`);
+  } catch (error) {
+    console.error('❌ Error during seeding:', error);
+    process.exit(1);
   }
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seeding failed:', e);
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-module.exports = { addSongs80s, addSongsMovies, generateQRToken };

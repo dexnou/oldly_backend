@@ -14,8 +14,8 @@ const validateStartGame = [
     .withMessage('ID del mazo debe ser numérico'),
   body('mode')
     .optional()
-    .isIn(['simple', 'score'])
-    .withMessage('Modo debe ser simple o score'),
+    .isIn(['simple', 'score', 'competitive', 'competitive_turns'])
+    .withMessage('Modo inválido'),
   body('participants')
     .optional()
     .isArray()
@@ -27,7 +27,7 @@ const validateStartGame = [
     .withMessage('El nombre del participante debe tener entre 1 y 80 caracteres')
 ];
 
-// Validation middleware for submitting a round
+// Validation middleware for submitting a round (Simple/Score)
 const validateRound = [
   body('cardId')
     .notEmpty()
@@ -35,42 +35,15 @@ const validateRound = [
     .isNumeric()
     .withMessage('ID de la carta debe ser numérico'),
   // For simple mode
-  body('songGuess')
-    .optional()
-    .isString()
-    .trim(),
-  body('artistGuess')
-    .optional()
-    .isString()
-    .trim(),
-  body('albumGuess')
-    .optional()
-    .isString()
-    .trim(),
+  body('songGuess').optional().isString().trim(),
+  body('artistGuess').optional().isString().trim(),
+  body('albumGuess').optional().isString().trim(),
   // For score mode
-  body('participantAnswers')
-    .optional()
-    .isArray()
-    .withMessage('Las respuestas de participantes deben ser un array'),
-  body('participantAnswers.*.participantId')
-    .if(body('participantAnswers').exists())
-    .isNumeric()
-    .withMessage('ID del participante debe ser numérico'),
-  body('participantAnswers.*.songGuess')
-    .if(body('participantAnswers').exists())
-    .optional()
-    .isString()
-    .trim(),
-  body('participantAnswers.*.artistGuess')
-    .if(body('participantAnswers').exists())
-    .optional()
-    .isString()
-    .trim(),
-  body('participantAnswers.*.albumGuess')
-    .if(body('participantAnswers').exists())
-    .optional()
-    .isString()
-    .trim()
+  body('participantAnswers').optional().isArray(),
+  body('participantAnswers.*.participantId').if(body('participantAnswers').exists()).isNumeric(),
+  body('participantAnswers.*.songGuess').if(body('participantAnswers').exists()).optional().isString().trim(),
+  body('participantAnswers.*.artistGuess').if(body('participantAnswers').exists()).optional().isString().trim(),
+  body('participantAnswers.*.albumGuess').if(body('participantAnswers').exists()).optional().isString().trim()
 ];
 
 // Validation middleware for starting a competitive game
@@ -86,47 +59,43 @@ const validateStartCompetitive = [
   body('participants.*.name')
     .trim()
     .isLength({ min: 1, max: 80 })
-    .withMessage('El nombre del participante debe tener entre 1 y 80 caracteres')
+    .withMessage('El nombre del participante debe tener entre 1 y 80 caracteres'),
+  body('mode')
+    .optional()
+    .isIn(['competitive', 'competitive_turns'])
+    .withMessage('Modo debe ser competitive o competitive_turns')
 ];
 
-// Validation middleware for competitive round
+// Validation middleware for competitive round (Classic Competitive)
 const validateCompetitiveRound = [
+  body('cardId').notEmpty().isNumeric(),
+  body('participantAnswers').isArray({ min: 1 }),
+  body('participantAnswers.*.participantId').isNumeric(),
+  body('participantAnswers.*.userKnew').isObject()
+];
+
+// NUEVO: Validation middleware for TURN BASED round
+const validateTurnRound = [
   body('cardId')
     .notEmpty()
     .withMessage('ID de la carta es requerido')
-    .isNumeric()
-    .withMessage('ID de la carta debe ser numérico'),
-  body('participantAnswers')
-    .isArray({ min: 1 })
-    .withMessage('Se requieren respuestas de participantes'),
-  body('participantAnswers.*.participantId')
-    .isNumeric()
-    .withMessage('ID del participante debe ser numérico'),
-  body('participantAnswers.*.userKnew')
+    .isNumeric(),
+  body('participantId')
+    .notEmpty()
+    .withMessage('ID del participante es requerido')
+    .isNumeric(),
+  body('userKnew')
+    .optional()
     .isObject()
-    .withMessage('userKnew debe ser un objeto'),
-  // Note: More specific validation for nested userKnew properties is done in the controller
+    .withMessage('userKnew debe ser un objeto con songKnew, artistKnew, etc.')
 ];
 
 // Validation middleware for scoring a card
 const validateScoreCard = [
-  body('cardId')
-    .notEmpty()
-    .withMessage('ID de la carta es requerido')
-    .isNumeric()
-    .withMessage('ID de la carta debe ser numérico'),
-  body('userKnew.songKnew')
-    .optional()
-    .isBoolean()
-    .withMessage('songKnew debe ser verdadero o falso'),
-  body('userKnew.artistKnew')
-    .optional()
-    .isBoolean()
-    .withMessage('artistKnew debe ser verdadero o falso'),
-  body('userKnew.albumKnew')
-    .optional()
-    .isBoolean()
-    .withMessage('albumKnew debe ser verdadero o falso')
+  body('cardId').notEmpty().isNumeric(),
+  body('userKnew.songKnew').optional().isBoolean(),
+  body('userKnew.artistKnew').optional().isBoolean(),
+  body('userKnew.albumKnew').optional().isBoolean()
 ];
 
 // Handle validation errors
@@ -141,6 +110,8 @@ const handleValidationErrors = (req, res, next) => {
   }
   next();
 };
+
+// --- DEFINICIÓN DE RUTAS ---
 
 // POST /api/game/start
 router.post('/start', 
@@ -183,12 +154,21 @@ router.post('/:id/round',
   GameController.submitRound
 );
 
-// POST /api/game/:id/submit-competitive-round
+// POST /api/game/:id/submit-competitive-round (Modo todos contra todos)
 router.post('/:id/submit-competitive-round',
   authMiddleware,
   validateCompetitiveRound,
   handleValidationErrors,
   GameController.submitCompetitiveRound
+);
+
+// NUEVO: POST /api/game/:id/submit-turn-round (Modo por turnos)
+// Esta es la ruta que te faltaba y causaba el error 404
+router.post('/:id/submit-turn-round',
+  authMiddleware,
+  validateTurnRound,
+  handleValidationErrors,
+  GameController.submitTurnBasedRound
 );
 
 // POST /api/game/:id/finish
