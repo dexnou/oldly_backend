@@ -100,7 +100,7 @@ class AdminController {
     }
   }
 
-  // POST /api/admin/cards
+// POST /api/admin/cards - Crear carta
   static async createCard(req, res) {
     try {
       const {
@@ -117,11 +117,12 @@ class AdminController {
         difficulty = 'medium'
       } = req.body;
 
-      // Find or create artist
+      // 1. Buscar o crear artista
+      // Usamos upsert para garantizar consistencia si hay concurrencia
       let artist = await prisma.artist.findFirst({
         where: {
           name: artistName,
-          country: artistCountry
+          country: artistCountry || null // Manejar undefined como null
         }
       });
 
@@ -133,16 +134,25 @@ class AdminController {
             genre: artistGenre
           }
         });
+      } else if (artistGenre && artist.genre !== artistGenre) {
+        // Opcional: Actualizar género si viene uno nuevo
+        await prisma.artist.update({
+          where: { id: artist.id },
+          data: { genre: artistGenre }
+        });
       }
 
-      // Find or create album if provided
+      // 2. Buscar o crear álbum (si se provee título)
       let album = null;
       if (albumTitle) {
+        // IMPORTANTE: Asegurar que el año sea un entero o null
+        const releaseYearInt = albumReleaseYear ? parseInt(albumReleaseYear) : null;
+
         album = await prisma.album.findFirst({
           where: {
             artistId: artist.id,
             title: albumTitle,
-            releaseYear: albumReleaseYear ? parseInt(albumReleaseYear) : null
+            releaseYear: releaseYearInt
           }
         });
 
@@ -151,14 +161,20 @@ class AdminController {
             data: {
               artistId: artist.id,
               title: albumTitle,
-              releaseYear: albumReleaseYear ? parseInt(albumReleaseYear) : null,
+              releaseYear: releaseYearInt,
               coverUrl: albumCoverUrl
             }
+          });
+        } else if (albumCoverUrl && album.coverUrl !== albumCoverUrl) {
+          // Actualizar portada si es diferente
+          album = await prisma.album.update({
+            where: { id: album.id },
+            data: { coverUrl: albumCoverUrl }
           });
         }
       }
 
-      // Generate unique QR token
+      // 3. Generar token QR único
       let qrToken;
       let tokenExists = true;
       
@@ -170,7 +186,7 @@ class AdminController {
         tokenExists = !!existingCard;
       }
 
-      // Create QR code data with redirect URL
+      // 4. Crear data QR
       const qrRedirectUrl = `${process.env.FRONTEND_URL}/qr/${qrToken}`;
       const qrCode = JSON.stringify({
         token: qrToken,
@@ -179,7 +195,7 @@ class AdminController {
         gameUrl: null 
       });
 
-      // Create card
+      // 5. Crear la carta
       const card = await prisma.card.create({
         data: {
           deckId: parseInt(deckId),
@@ -193,28 +209,9 @@ class AdminController {
           difficulty
         },
         include: {
-          artist: {
-            select: {
-              id: true,
-              name: true,
-              country: true,
-              genre: true
-            }
-          },
-          album: {
-            select: {
-              id: true,
-              title: true,
-              releaseYear: true,
-              coverUrl: true
-            }
-          },
-          deck: {
-            select: {
-              id: true,
-              title: true
-            }
-          }
+          artist: true,
+          album: true,
+          deck: true
         }
       });
 
@@ -225,129 +222,173 @@ class AdminController {
           card: {
             ...card,
             id: card.id.toString(),
-            artist: {
-              ...card.artist,
-              id: card.artist.id.toString()
-            },
-            album: card.album ? {
-              ...card.album,
-              id: card.album.id.toString()
-            } : null,
-            deck: {
-              ...card.deck,
-              id: card.deck.id.toString()
-            }
+            artist: { ...card.artist, id: card.artist.id.toString() },
+            album: card.album ? { ...card.album, id: card.album.id.toString() } : null,
+            deck: { ...card.deck, id: card.deck.id.toString() }
           }
         }
       });
     } catch (error) {
       console.error('Error creando carta:', error);
-      
       if (error.code === 'P2002') {
         return res.status(400).json({
           success: false,
           message: 'Ya existe una carta con esa canción en este mazo'
         });
       }
-
-      res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor'
-      });
+      res.status(500).json({ success: false, message: 'Error interno del servidor' });
     }
   }
 
-  // PUT /api/admin/cards/:id
+// PUT /api/admin/cards/:id - Actualizar carta (CORREGIDO)
   static async updateCard(req, res) {
-      try {
-        const { id } = req.params;
-        const { 
-          deckId, 
-          artistName, 
-          artistCountry, 
-          artistGenre, 
-          albumTitle, 
-          albumReleaseYear, 
-          albumCoverUrl, 
-          songName, 
-          spotifyUrl, 
-          previewUrl, 
-          difficulty 
-        } = req.body;
-  
-        // Find or create artist
-        const artist = await prisma.artist.upsert({
-          where: { name_country: { name: artistName, country: artistCountry || null } },
-          update: { genre: artistGenre },
-          create: { name: artistName, country: artistCountry, genre: artistGenre }
+    try {
+      const { id } = req.params;
+      const { 
+        deckId, 
+        artistName, 
+        artistCountry, 
+        artistGenre, 
+        albumTitle, 
+        albumReleaseYear, 
+        albumCoverUrl, 
+        songName, 
+        spotifyUrl, 
+        previewUrl, 
+        difficulty 
+      } = req.body;
+
+      // 1. Actualizar o crear artista
+      // Usamos upsert buscando por nombre y país (o solo nombre si país es null)
+      // Nota: Prisma requiere un índice único en [name, country] para esto, que ya tienes en el schema.
+      const artist = await prisma.artist.upsert({
+        where: { 
+          name_country: { 
+            name: artistName, 
+            country: artistCountry || null // Asegura que undefined sea null para coincidir con la DB
+          } 
+        },
+        update: { genre: artistGenre },
+        create: { 
+          name: artistName, 
+          country: artistCountry, 
+          genre: artistGenre 
+        }
+      });
+
+      // 2. Actualizar o crear álbum
+      let album = null;
+      if (albumTitle) {
+        // [CORRECCIÓN CRÍTICA]: Parsear el año a Int o null. Prisma fallaba aquí si era string.
+        const releaseYearInt = albumReleaseYear ? parseInt(albumReleaseYear) : null;
+
+        // Intentamos buscar primero para evitar error de Unique Constraint si el upsert falla por IDs distintos
+        album = await prisma.album.findFirst({
+            where: {
+                artistId: artist.id,
+                title: albumTitle,
+                releaseYear: releaseYearInt
+            }
         });
-  
-        let album = null;
-        if (albumTitle) {
-          album = await prisma.album.upsert({
-            where: { artistId_title_releaseYear: { artistId: artist.id, title: albumTitle, releaseYear: albumReleaseYear } },
-            update: { coverUrl: albumCoverUrl },
-            create: { artistId: artist.id, title: albumTitle, releaseYear: albumReleaseYear, coverUrl: albumCoverUrl }
+
+        if (album) {
+            // Si existe, actualizamos URL
+            album = await prisma.album.update({
+                where: { id: album.id },
+                data: { coverUrl: albumCoverUrl }
+            });
+        } else {
+            // Si no, creamos
+            album = await prisma.album.create({
+                data: {
+                    artistId: artist.id,
+                    title: albumTitle,
+                    releaseYear: releaseYearInt,
+                    coverUrl: albumCoverUrl
+                }
+            });
+        }
+      }
+
+      // 3. Actualizar la carta
+      const card = await prisma.card.update({
+        where: { id: parseInt(id) },
+        data: {
+          deckId: parseInt(deckId),
+          artistId: artist.id,
+          albumId: album?.id, // Puede ser null si se borró el álbum
+          songName,
+          spotifyUrl,
+          previewUrl,
+          difficulty
+        },
+        include: {
+          artist: true,
+          album: true,
+          deck: true
+        }
+      });
+
+      res.json({ 
+        success: true, 
+        message: 'Carta actualizada exitosamente', 
+        data: { 
+            card: {
+                ...card,
+                id: card.id.toString(), // Convertir BigInts a string
+                artist: { ...card.artist, id: card.artist.id.toString() },
+                album: card.album ? { ...card.album, id: card.album.id.toString() } : null,
+                deck: { ...card.deck, id: card.deck.id.toString() }
+            }
+        } 
+      });
+    } catch (error) {
+      console.error('Error actualizando carta:', error);
+      res.status(500).json({ success: false, message: 'Error al actualizar carta' });
+    }
+  }
+
+// DELETE /api/admin/cards/:id - Eliminar carta
+  static async deleteCard(req, res) {
+    try {
+      const { id } = req.params;
+      const { force } = req.query;
+
+      const cardId = parseInt(id);
+
+      // Si NO se fuerza la eliminación, verificamos si ya se jugó
+      if (force !== 'true') {
+        const playedCount = await prisma.gameRound.count({ where: { cardId } });
+        const participantPlayedCount = await prisma.gameParticipantRound.count({ where: { cardId } });
+        
+        if (playedCount > 0 || participantPlayedCount > 0) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Esta carta ya ha sido jugada y no se puede eliminar directamente por seguridad.',
+            data: { 
+                suggestion: 'Usa la opción de forzar eliminación si estás seguro.', 
+                timesPlayed: playedCount + participantPlayedCount 
+            }
           });
         }
-  
-        const card = await prisma.card.update({
-          where: { id: parseInt(id) },
-          data: {
-            deckId: parseInt(deckId),
-            artistId: artist.id,
-            albumId: album?.id,
-            songName,
-            spotifyUrl,
-            previewUrl,
-            difficulty
-          },
-          include: {
-            artist: true,
-            album: true,
-            deck: true
-          }
-        });
-  
-        res.json({ success: true, message: 'Carta actualizada', data: { card } });
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'Error al actualizar carta' });
       }
-    }
 
-  // DELETE /api/admin/cards/:id
-  static async deleteCard(req, res) {
-      try {
-        const { id } = req.params;
-        const { force } = req.query;
-  
-        if (force !== 'true') {
-          const playedCount = await prisma.gameRound.count({ where: { cardId: parseInt(id) } });
-          const participantPlayedCount = await prisma.gameParticipantRound.count({ where: { cardId: parseInt(id) } });
-          
-          if (playedCount > 0 || participantPlayedCount > 0) {
-            return res.status(400).json({ 
-              success: false, 
-              message: 'Esta carta ya ha sido jugada y no se puede eliminar directamente.',
-              data: { suggestion: 'Usa force=true para eliminarla de todas formas.', timesPlayed: playedCount + participantPlayedCount }
-            });
-          }
-        }
-  
-        if (force === 'true') {
-          await prisma.gameParticipantRound.deleteMany({ where: { cardId: parseInt(id) } });
-          await prisma.gameRound.deleteMany({ where: { cardId: parseInt(id) } });
-        }
-  
-        await prisma.card.delete({ where: { id: parseInt(id) } });
-        res.json({ success: true, message: 'Carta eliminada' });
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'Error al eliminar carta' });
+      // Si force es 'true' o no se ha jugado, procedemos
+      // Primero limpiamos las referencias en tablas de juego (CASCADE manual si es necesario)
+      if (force === 'true') {
+        await prisma.gameParticipantRound.deleteMany({ where: { cardId } });
+        await prisma.gameRound.deleteMany({ where: { cardId } });
       }
-    }
 
+      await prisma.card.delete({ where: { id: cardId } });
+      
+      res.json({ success: true, message: 'Carta eliminada exitosamente' });
+    } catch (error) {
+      console.error('Error eliminando carta:', error);
+      res.status(500).json({ success: false, message: 'Error al eliminar carta' });
+    }
+  }
+  
   // GET /api/admin/users/export
   static async exportUsers(req, res) {
     try {

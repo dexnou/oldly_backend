@@ -1,4 +1,4 @@
-# Oldly Fun Music Box - Backend API
+# Oldy Fans Fun Music Box - Backend API
 
 Servidor backend para el juego musical de trivias con sistema de puntuación, autenticación OAuth y gestión de cartas QR.
 
@@ -759,4 +759,4 @@ Para soporte y preguntas:
 
 ---
 
-**Oldly Fun Music Box Backend** - Desarrollado con ❤️ por el equipo de dexnou
+**Oldy Fans Fun Music Box Backend** - Desarrollado con ❤️ por el equipo de dexnou
