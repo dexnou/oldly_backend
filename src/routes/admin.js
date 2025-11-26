@@ -19,17 +19,21 @@ const validateDeck = [
     .isLength({ min: 1, max: 50 })
     .withMessage('El tema debe tener entre 1 y 50 caracteres'),
   body('buyLink')
-    .optional()
+    .optional({ checkFalsy: true }) // Permite string vacío
     .isURL()
     .withMessage('El enlace de compra debe ser una URL válida'),
   body('coverImage')
-    .optional()
+    .optional({ checkFalsy: true }) // Permite string vacío
     .isURL()
     .withMessage('La imagen de portada debe ser una URL válida'),
   body('active')
     .optional()
     .isBoolean()
-    .withMessage('El campo activo debe ser booleano')
+    .withMessage('El campo activo debe ser booleano'),
+  // Nuevos campos opcionales para etiquetas
+  body('labelSong').optional().trim(),
+  body('labelArtist').optional().trim(),
+  body('labelAlbum').optional().trim()
 ];
 
 // Validation for card creation
@@ -58,11 +62,11 @@ const validateCard = [
     .isLength({ max: 150 })
     .withMessage('El título del álbum debe tener máximo 150 caracteres'),
   body('albumReleaseYear')
-    .optional()
+    .optional({ checkFalsy: true }) // Permite vacío
     .isInt({ min: 1900, max: new Date().getFullYear() })
     .withMessage('El año de lanzamiento debe ser válido'),
   body('albumCoverUrl')
-    .optional()
+    .optional({ checkFalsy: true }) // Permite vacío
     .isURL()
     .withMessage('La URL de la portada del álbum debe ser válida'),
   body('songName')
@@ -70,11 +74,11 @@ const validateCard = [
     .isLength({ min: 1, max: 150 })
     .withMessage('El nombre de la canción es requerido y debe tener máximo 150 caracteres'),
   body('spotifyUrl')
-    .optional()
+    .optional({ checkFalsy: true }) // Permite vacío
     .isURL()
     .withMessage('La URL de Spotify debe ser válida'),
   body('previewUrl')
-    .optional()
+    .optional({ checkFalsy: true }) // Permite vacío
     .isURL()
     .withMessage('La URL de preview debe ser válida'),
   body('difficulty')
@@ -143,6 +147,9 @@ router.post('/login',
 // Protected admin routes
 router.use(adminMiddleware);
 
+// GET /api/admin/decks - List all decks
+router.get('/decks', AdminController.getDecks);
+
 // POST /api/admin/decks - Create or update deck
 router.post('/decks', 
   validateDeck, 
@@ -150,11 +157,25 @@ router.post('/decks',
   AdminController.createOrUpdateDeck
 );
 
+// PUT /api/admin/decks/:id - Update deck specifically (for editing)
+router.put('/decks/:id',
+  validateDeck,
+  handleValidationErrors,
+  AdminController.createOrUpdateDeck // Reusing the logic
+);
+
 // POST /api/admin/cards - Create card
 router.post('/cards', 
   validateCard, 
   handleValidationErrors, 
   AdminController.createCard
+);
+
+// PUT /api/admin/cards/:id - Update card
+router.put('/cards/:id',
+  validateCard,
+  handleValidationErrors,
+  AdminController.updateCard
 );
 
 // GET /api/admin/users/export - Export users data

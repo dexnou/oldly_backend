@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
-// Función para generar token QR único de 16 caracteres
+// Función para generar token QR único
 function generateQRToken() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
@@ -17,7 +17,7 @@ async function main() {
   console.log('🌱 Starting database seeding...');
 
   try {
-    // 🧹 1. LIMPIEZA PREVIA
+    // 🧹 1. LIMPIEZA (Para empezar de cero con los datos BIEN cargados)
     console.log('🧹 Cleaning up old data...');
     await prisma.gameParticipantRound.deleteMany({});
     await prisma.gameParticipant.deleteMany({});
@@ -26,10 +26,11 @@ async function main() {
     await prisma.ranking.deleteMany({});
     await prisma.userDeck.deleteMany({});
     await prisma.card.deleteMany({});
+    await prisma.album.deleteMany({}); // Borramos álbumes para limpiar los "Los 80's" genéricos
     await prisma.deck.deleteMany({});
     console.log('✨ Database cleaned.');
 
-    // 👤 2. Crear usuario administrador
+    // 👤 2. Admin User
     console.log('👤 Creating admin user Noah...');
     const hashedPassword = await bcrypt.hash('noah123admin', 12);
     
@@ -45,7 +46,7 @@ async function main() {
     });
     console.log(`✅ Admin user created: ${adminUser.email}`);
 
-    // 📦 3. Crear los mazos (AHORA SIN ERROR DE QR)
+    // 📦 3. Decks
     console.log('📦 Creating decks...');
     
     const deck80s = await prisma.deck.create({
@@ -55,7 +56,10 @@ async function main() {
         theme: '80s',
         buyLink: 'https://oldly.com/buy/80s-deck',
         coverImage: 'https://oldly.com/images/80s-deck-cover.jpg',
-        // Eliminamos qrToken y qrCode aquí porque el modelo Deck ya no los tiene
+        // Labels personalizados para este mazo
+        labelSong: "Canción",
+        labelArtist: "Artista",
+        labelAlbum: "Álbum Original", 
         active: true
       }
     });
@@ -67,34 +71,121 @@ async function main() {
         theme: 'movies',
         buyLink: 'https://oldly.com/buy/movies-deck',
         coverImage: 'https://oldly.com/images/movies-deck-cover.jpg',
-        // Eliminamos qrToken y qrCode aquí también
+        // Labels personalizados para cine
+        labelSong: "Tema Musical",
+        labelArtist: "Compositor/Artista",
+        labelAlbum: "Película",
         active: true
       }
     });
 
-    console.log(`✅ Decks created: ${deck80s.title}, ${deckMovies.title}`);
+    console.log(`✅ Decks created.`);
 
-    // 🎵 4. LISTA DE CANCIONES
+    // 🎵 4. DATOS REALES DE LAS CANCIONES Y ÁLBUMES
     const songsData = [
-      { artist: 'Soda Stereo', song: 'De música ligera', year: 1990, genre: 'Rock Pop', difficulty: 'medium' },
-      { artist: 'Charly García', song: 'Demoliendo hoteles', year: 1984, genre: 'Rock Urbano', difficulty: 'medium' },
-      { artist: 'Los Abuelos de la Nada', song: 'Mil horas', year: 1983, genre: 'Pop Rock', difficulty: 'easy' },
-      { artist: 'Fito Páez', song: 'Alarma entre los ángeles', year: 1985, genre: 'Pop Rock', difficulty: 'hard' },
-      { artist: 'Sumo', song: 'Divididos por la felicidad', year: 1985, genre: 'Rock Alternativo', difficulty: 'hard' },
-      { artist: 'Patricio Rey y sus Redonditos de Ricota', song: 'Ji ji ji', year: 1986, genre: 'Rock Nacional', difficulty: 'medium' },
-      { artist: 'Enanitos Verdes', song: 'La muralla verde', year: 1986, genre: 'Pop Rock', difficulty: 'easy' },
-      { artist: 'Charly García', song: 'Fanky', year: 1989, genre: 'Funk Rock', difficulty: 'medium' },
-      { artist: 'Soda Stereo', song: 'Persiana americana', year: 1986, genre: 'Rock Pop', difficulty: 'medium' },
-      { artist: 'Virus', song: 'Una luna de miel en la mano', year: 1985, genre: 'Pop Electrónico', difficulty: 'medium' },
-      { artist: 'Los Abuelos de la Nada', song: 'Costumbres argentinas', year: 1985, genre: 'Rock Ligero', difficulty: 'easy' },
-      { artist: 'Fito Páez', song: 'Mariposa Tecknicolor', year: 1994, genre: 'Pop Rock', difficulty: 'easy' }
+      { 
+        artist: 'Soda Stereo', 
+        song: 'De música ligera', 
+        album: 'Canción Animal', 
+        year: 1990, 
+        genre: 'Rock Pop', 
+        difficulty: 'medium' 
+      },
+      { 
+        artist: 'Charly García', 
+        song: 'Demoliendo hoteles', 
+        album: 'Piano Bar', 
+        year: 1984, 
+        genre: 'Rock Urbano', 
+        difficulty: 'medium' 
+      },
+      { 
+        artist: 'Los Abuelos de la Nada', 
+        song: 'Mil horas', 
+        album: 'Vasos y besos', 
+        year: 1983, 
+        genre: 'Pop Rock', 
+        difficulty: 'easy' 
+      },
+      { 
+        artist: 'Fito Páez', 
+        song: 'Alarma entre los ángeles', 
+        album: 'Giros', 
+        year: 1985, 
+        genre: 'Pop Rock', 
+        difficulty: 'hard' 
+      },
+      { 
+        artist: 'Sumo', 
+        song: 'Divididos por la felicidad', 
+        album: 'Divididos por la felicidad', 
+        year: 1985, 
+        genre: 'Rock Alternativo', 
+        difficulty: 'hard' 
+      },
+      { 
+        artist: 'Patricio Rey y sus Redonditos de Ricota', 
+        song: 'Ji ji ji', 
+        album: 'Oktubre', 
+        year: 1986, 
+        genre: 'Rock Nacional', 
+        difficulty: 'medium' 
+      },
+      { 
+        artist: 'Enanitos Verdes', 
+        song: 'La muralla verde', 
+        album: 'Contrarreloj', 
+        year: 1986, 
+        genre: 'Pop Rock', 
+        difficulty: 'easy' 
+      },
+      { 
+        artist: 'Charly García', 
+        song: 'Fanky', 
+        album: 'Cómo conseguir chicas', 
+        year: 1989, 
+        genre: 'Funk Rock', 
+        difficulty: 'medium' 
+      },
+      { 
+        artist: 'Soda Stereo', 
+        song: 'Persiana americana', 
+        album: 'Signos', 
+        year: 1986, 
+        genre: 'Rock Pop', 
+        difficulty: 'medium' 
+      },
+      { 
+        artist: 'Virus', 
+        song: 'Una luna de miel en la mano', 
+        album: 'Locura', 
+        year: 1985, 
+        genre: 'Pop Electrónico', 
+        difficulty: 'medium' 
+      },
+      { 
+        artist: 'Los Abuelos de la Nada', 
+        song: 'Costumbres argentinas', 
+        album: 'Los Abuelos en el Ópera', 
+        year: 1985, 
+        genre: 'Rock Ligero', 
+        difficulty: 'easy' 
+      },
+      { 
+        artist: 'Fito Páez', 
+        song: 'Mariposa Tecknicolor', 
+        album: 'Circo Beat', 
+        year: 1994, 
+        genre: 'Pop Rock', 
+        difficulty: 'easy' 
+      }
     ];
 
-    // 🔄 5. Procesar y crear cartas
-    console.log('🎵 Adding songs to database...');
+    // 🔄 5. Procesar y crear
+    console.log('🎵 Adding songs with correct albums...');
 
     for (const data of songsData) {
-      // a) Crear/Encontrar Artista
+      // a) Artista
       const artist = await prisma.artist.upsert({
         where: { 
           name_country: {
@@ -110,25 +201,25 @@ async function main() {
         }
       });
 
-      // b) Crear/Encontrar Álbum "Los 80's"
+      // b) Álbum (CORRECTO)
       const album = await prisma.album.upsert({
         where: {
           artistId_title_releaseYear: {
             artistId: artist.id,
-            title: "Los 80's",
+            title: data.album,
             releaseYear: data.year
           }
         },
         update: {},
         create: {
           artistId: artist.id,
-          title: "Los 80's",
+          title: data.album,
           releaseYear: data.year,
-          coverUrl: 'https://oldly.com/images/albums/generic-80s.jpg'
+          coverUrl: `https://oldly.com/images/albums/${data.album.toLowerCase().replace(/[^a-z0-9]/g, '-')}.jpg`
         }
       });
 
-      // c) Crear Carta (ESTA SÍ LLEVA QR)
+      // c) Carta
       const qrToken = generateQRToken();
       await prisma.card.create({
         data: {
@@ -140,11 +231,12 @@ async function main() {
           qrToken: qrToken,
           previewUrl: null,
           difficulty: data.difficulty,
-          spotifyUrl: `http://googleusercontent.com/spotify.com/7{encodeURIComponent(data.artist + ' ' + data.song)}`
+          // URL de Spotify simulada pero con estructura correcta
+          spotifyUrl: `https://open.spotify.com/{encodeURIComponent(data.artist + ' ' + data.song)}`
         }
       });
 
-      console.log(`✨ Created: ${data.song} - ${data.artist}`);
+      console.log(`✨ Created: ${data.song} - Album: ${data.album}`);
     }
 
     console.log('');

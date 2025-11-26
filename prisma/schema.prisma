@@ -21,11 +21,10 @@ model User {
   lastLoginAt  DateTime?  @map("last_login_at")
   isActive     Boolean    @default(true) @map("is_active")
   
-  // Relaciones
   games        Game[]
   rankings     Ranking[]
   userDecks    UserDeck[]
-  ownedRooms   Room[]     // Relación añadida para las salas creadas
+  ownedRooms   Room[]
 
   @@map("users")
 }
@@ -68,16 +67,21 @@ model Deck {
   theme       String     @db.VarChar(50)
   buyLink     String?    @map("buy_link") @db.VarChar(255)
   coverImage  String?    @map("cover_image") @db.VarChar(255)
+  
+  // CAMPOS PARA ETIQUETAS PERSONALIZADAS
+  labelSong   String     @default("Canción") @map("label_song") @db.VarChar(50)
+  labelArtist String     @default("Artista") @map("label_artist") @db.VarChar(50)
+  labelAlbum  String     @default("Álbum")   @map("label_album") @db.VarChar(50)
+
   active      Boolean    @default(true)
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
   
-  // Relaciones
   cards       Card[]
   games       Game[]
   rankings    Ranking[]
   userDecks   UserDeck[]
-  rooms       Room[]     // Relación añadida para las salas
+  rooms       Room[]
 
   @@index([theme])
   @@map("decks")
@@ -153,7 +157,7 @@ model GameParticipant {
   name        String       @db.VarChar(80)
   totalPoints Int          @default(0) @map("total_points")
   totalRounds Int          @default(0) @map("total_rounds")
-  turnOrder   Int          @default(0) @map("turn_order") // Agregado según SQL
+  turnOrder   Int          @default(0) @map("turn_order")
   createdAt   DateTime     @default(now()) @map("created_at")
   
   rounds      GameParticipantRound[]
@@ -218,7 +222,6 @@ model Ranking {
   @@map("rankings")
 }
 
-// NUEVO MODELO ROOM SEGÚN TU SQL
 model Room {
   id         Int      @id @default(autoincrement()) @db.UnsignedInt
   token      String   @unique @db.Char(8)
@@ -263,11 +266,11 @@ enum UserDeckSource {
 }
 
 enum GameMode {
-  casual            // Sin puntaje
-  competitive       // Puntos + Scoreboard
-  competitive_turns // Nuevo en SQL: Turnos
-  simple            // Legacy
-  score             // Legacy
+  casual
+  competitive
+  competitive_turns
+  simple
+  score
 }
 
 enum GameStatus {

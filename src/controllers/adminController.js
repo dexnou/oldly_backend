@@ -2,17 +2,22 @@ const prisma = require('../utils/database');
 const AuthService = require('../services/authService');
 
 class AdminController {
-  // POST /api/admin/decks
+// POST /api/admin/decks (Create or Update Deck)
   static async createOrUpdateDeck(req, res) {
     try {
+      // CORRECCIÓN: Buscar el ID en el body O en los parámetros de la URL
+      const id = req.body.id || req.params.id;
+
       const { 
-        id, 
         title, 
         description, 
         theme, 
         buyLink, 
         coverImage, 
-        active = true 
+        active = true,
+        labelSong,
+        labelArtist,
+        labelAlbum
       } = req.body;
 
       let deck;
@@ -27,7 +32,11 @@ class AdminController {
             theme,
             buyLink,
             coverImage,
-            active
+            active,
+            // Actualizar labels si se envían, sino mantener default o anterior
+            labelSong: labelSong || "Canción",
+            labelArtist: labelArtist || "Artista",
+            labelAlbum: labelAlbum || "Álbum"
           }
         });
       } else {
@@ -39,7 +48,11 @@ class AdminController {
             theme,
             buyLink,
             coverImage,
-            active
+            active,
+            // Guardar labels por defecto si no se envían
+            labelSong: labelSong || "Canción",
+            labelArtist: labelArtist || "Artista",
+            labelAlbum: labelAlbum || "Álbum"
           }
         });
       }
@@ -68,6 +81,22 @@ class AdminController {
         success: false,
         message: 'Error interno del servidor'
       });
+    }
+  }
+  // GET /api/admin/decks
+  static async getDecks(req, res) {
+    try {
+      const decks = await prisma.deck.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: { select: { cards: true } }
+        }
+      });
+      
+      res.json({ success: true, data: { decks } });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ success: false, message: 'Error al obtener mazos' });
     }
   }
 
@@ -146,8 +175,8 @@ class AdminController {
       const qrCode = JSON.stringify({
         token: qrToken,
         redirectUrl: qrRedirectUrl,
-        cardId: null, // Will be filled after creation
-        gameUrl: null // Will be filled after creation
+        cardId: null, 
+        gameUrl: null 
       });
 
       // Create card
@@ -227,6 +256,97 @@ class AdminController {
       });
     }
   }
+
+  // PUT /api/admin/cards/:id
+  static async updateCard(req, res) {
+      try {
+        const { id } = req.params;
+        const { 
+          deckId, 
+          artistName, 
+          artistCountry, 
+          artistGenre, 
+          albumTitle, 
+          albumReleaseYear, 
+          albumCoverUrl, 
+          songName, 
+          spotifyUrl, 
+          previewUrl, 
+          difficulty 
+        } = req.body;
+  
+        // Find or create artist
+        const artist = await prisma.artist.upsert({
+          where: { name_country: { name: artistName, country: artistCountry || null } },
+          update: { genre: artistGenre },
+          create: { name: artistName, country: artistCountry, genre: artistGenre }
+        });
+  
+        let album = null;
+        if (albumTitle) {
+          album = await prisma.album.upsert({
+            where: { artistId_title_releaseYear: { artistId: artist.id, title: albumTitle, releaseYear: albumReleaseYear } },
+            update: { coverUrl: albumCoverUrl },
+            create: { artistId: artist.id, title: albumTitle, releaseYear: albumReleaseYear, coverUrl: albumCoverUrl }
+          });
+        }
+  
+        const card = await prisma.card.update({
+          where: { id: parseInt(id) },
+          data: {
+            deckId: parseInt(deckId),
+            artistId: artist.id,
+            albumId: album?.id,
+            songName,
+            spotifyUrl,
+            previewUrl,
+            difficulty
+          },
+          include: {
+            artist: true,
+            album: true,
+            deck: true
+          }
+        });
+  
+        res.json({ success: true, message: 'Carta actualizada', data: { card } });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Error al actualizar carta' });
+      }
+    }
+
+  // DELETE /api/admin/cards/:id
+  static async deleteCard(req, res) {
+      try {
+        const { id } = req.params;
+        const { force } = req.query;
+  
+        if (force !== 'true') {
+          const playedCount = await prisma.gameRound.count({ where: { cardId: parseInt(id) } });
+          const participantPlayedCount = await prisma.gameParticipantRound.count({ where: { cardId: parseInt(id) } });
+          
+          if (playedCount > 0 || participantPlayedCount > 0) {
+            return res.status(400).json({ 
+              success: false, 
+              message: 'Esta carta ya ha sido jugada y no se puede eliminar directamente.',
+              data: { suggestion: 'Usa force=true para eliminarla de todas formas.', timesPlayed: playedCount + participantPlayedCount }
+            });
+          }
+        }
+  
+        if (force === 'true') {
+          await prisma.gameParticipantRound.deleteMany({ where: { cardId: parseInt(id) } });
+          await prisma.gameRound.deleteMany({ where: { cardId: parseInt(id) } });
+        }
+  
+        await prisma.card.delete({ where: { id: parseInt(id) } });
+        res.json({ success: true, message: 'Carta eliminada' });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Error al eliminar carta' });
+      }
+    }
 
   // GET /api/admin/users/export
   static async exportUsers(req, res) {
@@ -681,7 +801,7 @@ class AdminController {
           where: { deckId: parseInt(id) }
         });
 
-        // 7. Eliminar cartas del deck (esto eliminará albums y artists huérfanos automáticamente)
+        // 7. Eliminar cartas del deck
         await tx.card.deleteMany({
           where: { deckId: parseInt(id) }
         });
@@ -707,136 +827,6 @@ class AdminController {
       });
     } catch (error) {
       console.error('Error eliminando deck:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor'
-      });
-    }
-  }
-
-  // DELETE /api/admin/cards/:id
-  static async deleteCard(req, res) {
-    try {
-      const { id } = req.params;
-      const { force = false } = req.query;
-
-      // Verificar que la carta existe
-      const card = await prisma.card.findUnique({
-        where: { id: parseInt(id) },
-        include: {
-          artist: {
-            select: {
-              id: true,
-              name: true
-            }
-          },
-          album: {
-            select: {
-              id: true,
-              title: true
-            }
-          },
-          deck: {
-            select: {
-              id: true,
-              title: true
-            }
-          },
-          _count: {
-            select: {
-              gameRounds: true,
-              gameParticipantRounds: true
-            }
-          }
-        }
-      });
-
-      if (!card) {
-        return res.status(404).json({
-          success: false,
-          message: 'Carta no encontrada'
-        });
-      }
-
-      // Verificar si la carta ha sido jugada
-      const totalRounds = card._count.gameRounds + card._count.gameParticipantRounds;
-      
-      if (!force && totalRounds > 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'No se puede eliminar la carta porque ha sido jugada en partidas',
-          data: {
-            card: {
-              id: card.id.toString(),
-              songName: card.songName,
-              artist: card.artist.name,
-              deck: card.deck.title
-            },
-            timesPlayed: totalRounds,
-            suggestion: 'Usa el parámetro ?force=true para eliminar forzadamente'
-          }
-        });
-      }
-
-      // Eliminación en cascada usando transacción
-      await prisma.$transaction(async (tx) => {
-        // 1. Eliminar rondas de participantes donde se jugó esta carta
-        await tx.gameParticipantRound.deleteMany({
-          where: { cardId: parseInt(id) }
-        });
-
-        // 2. Eliminar rondas de juego donde se jugó esta carta
-        await tx.gameRound.deleteMany({
-          where: { cardId: parseInt(id) }
-        });
-
-        // 3. Eliminar la carta
-        await tx.card.delete({
-          where: { id: parseInt(id) }
-        });
-
-        // 4. Verificar si el artist o album quedaron huérfanos y eliminarlos
-        if (card.artist) {
-          const remainingCards = await tx.card.count({
-            where: { artistId: card.artist.id }
-          });
-          
-          if (remainingCards === 0) {
-            await tx.artist.delete({
-              where: { id: card.artist.id }
-            });
-          }
-        }
-
-        if (card.album) {
-          const remainingCards = await tx.card.count({
-            where: { albumId: card.album.id }
-          });
-          
-          if (remainingCards === 0) {
-            await tx.album.delete({
-              where: { id: card.album.id }
-            });
-          }
-        }
-      });
-
-      res.json({
-        success: true,
-        message: `Carta "${card.songName}" eliminada exitosamente`,
-        data: {
-          deletedCard: {
-            id: card.id.toString(),
-            songName: card.songName,
-            artist: card.artist.name,
-            album: card.album?.title || null,
-            deck: card.deck.title,
-            roundsDeleted: totalRounds
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Error eliminando carta:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'

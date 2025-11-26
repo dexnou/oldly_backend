@@ -259,7 +259,7 @@ class GameController {
                  .replace(/\s+/g, ' ');
       };
 
-      // Calculate points function
+      // Calculate points function (UPDATED: Sin multiplicador)
       const calculatePoints = (songGuess, artistGuess, albumGuess) => {
         const songCorrect = normalize(songGuess) === normalize(card.songName);
         const artistCorrect = normalize(artistGuess) === normalize(card.artist.name);
@@ -288,25 +288,8 @@ class GameController {
           pointsBreakdown.album = 1;
         }
 
-        // Difficulty multiplier
-        let difficultyMultiplier = 1;
-        switch (card.difficulty) {
-          case 'easy':
-            difficultyMultiplier = 1;
-            break;
-          case 'medium':
-            difficultyMultiplier = 1.5;
-            break;
-          case 'hard':
-            difficultyMultiplier = 2;
-            break;
-        }
-
-        if (points > 0) {
-          const bonus = Math.round((points * difficultyMultiplier) - points);
-          points = Math.round(points * difficultyMultiplier);
-          pointsBreakdown.difficultyBonus = bonus;
-        }
+        // Difficulty multiplier desactivado (siempre 1)
+        const difficultyMultiplier = 1;
 
         return {
           songCorrect,
@@ -805,7 +788,6 @@ class GameController {
       }
 
       // Find active competitive game for this user in this specific deck
-      // UPDATED: Aceptamos tanto 'competitive' como 'competitive_turns'
       const activeGame = await prisma.game.findFirst({
         where: {
           userId: parseInt(userId),
@@ -827,10 +809,11 @@ class GameController {
               name: true,
               totalPoints: true,
               totalRounds: true,
-              turnOrder: true
+              turnOrder: true,
+              rounds: { select: { cardId: true } } // Traer las cartas que ya jugó cada uno
             },
             orderBy: {
-              turnOrder: 'asc' // IMPORTANTE: Ordenar por turno para consistencia
+              turnOrder: 'asc'
             }
           }
         }
@@ -865,7 +848,7 @@ class GameController {
         });
       }
 
-      // LÓGICA DE TURNOS (NUEVO)
+      // LÓGICA DE TURNOS
       let currentTurnParticipantId = null;
       let nextTurnParticipantId = null;
 
@@ -903,6 +886,7 @@ class GameController {
               totalPoints: p.totalPoints,
               totalRounds: p.totalRounds,
               turnOrder: p.turnOrder,
+              playedCardIds: p.rounds.map(r => r.cardId),
               isMyTurn: activeGame.mode === 'competitive_turns' && p.id.toString() === currentTurnParticipantId
             }))
           }
@@ -925,7 +909,6 @@ class GameController {
   // POST /api/game/start-competitive
   static async startCompetitive(req, res) {
     try {
-      // UPDATED: Ahora recibimos "mode" (opcional, por defecto "competitive")
       const { deckId, participants = [], mode = 'competitive' } = req.body;
       const userId = req.user.id;
 
@@ -1112,7 +1095,7 @@ class GameController {
               turnOrder: true
             },
             orderBy: {
-              turnOrder: 'asc' // Importante ordenar por turnOrder
+              turnOrder: 'asc'
             }
           }
         }
@@ -1129,7 +1112,7 @@ class GameController {
             id: game.id.toString(),
             mode: game.mode,
             status: game.status,
-            currentTurnParticipantId, // Dato extra para el frontend
+            currentTurnParticipantId,
             totalPoints: game.totalPoints,
             totalRounds: game.totalRounds,
             startedAt: game.startedAt,
@@ -1144,7 +1127,8 @@ class GameController {
               name: p.name,
               totalPoints: p.totalPoints,
               totalRounds: p.totalRounds,
-              turnOrder: p.turnOrder
+              turnOrder: p.turnOrder,
+              playedCardIds: []
             }))
           }
         }
@@ -1267,30 +1251,6 @@ class GameController {
             errorCode: 'INVALID_USER_KNEW_STRUCTURE'
           });
         }
-        
-        // Validate boolean values if they exist
-        const { songKnew, artistKnew, albumKnew } = answer.userKnew;
-        if (songKnew !== undefined && typeof songKnew !== 'boolean') {
-          return res.status(400).json({
-            success: false,
-            message: 'songKnew debe ser verdadero o falso',
-            errorCode: 'INVALID_SONG_KNEW'
-          });
-        }
-        if (artistKnew !== undefined && typeof artistKnew !== 'boolean') {
-          return res.status(400).json({
-            success: false,
-            message: 'artistKnew debe ser verdadero o falso',
-            errorCode: 'INVALID_ARTIST_KNEW'
-          });
-        }
-        if (albumKnew !== undefined && typeof albumKnew !== 'boolean') {
-          return res.status(400).json({
-            success: false,
-            message: 'albumKnew debe ser verdadero o falso',
-            errorCode: 'INVALID_ALBUM_KNEW'
-          });
-        }
       }
       
       const validParticipants = await prisma.gameParticipant.findMany({
@@ -1324,7 +1284,7 @@ class GameController {
         });
       }
 
-      // Calculate points function
+      // Calculate points function (UPDATED: Sin multiplicador)
       const calculatePoints = (userKnew) => {
         const {
           songKnew = false,
@@ -1353,25 +1313,8 @@ class GameController {
           pointsBreakdown.album = 1;
         }
 
-        // Apply difficulty multiplier
-        let difficultyMultiplier = 1;
-        switch (card.difficulty) {
-          case 'easy':
-            difficultyMultiplier = 1;
-            break;
-          case 'medium':
-            difficultyMultiplier = 1.5;
-            break;
-          case 'hard':
-            difficultyMultiplier = 2;
-            break;
-        }
-
-        if (points > 0) {
-          const bonus = Math.round((points * difficultyMultiplier) - points);
-          points = Math.round(points * difficultyMultiplier);
-          pointsBreakdown.difficultyBonus = bonus;
-        }
+        // Multiplier always 1
+        const difficultyMultiplier = 1;
 
         return {
           songCorrect: songKnew,
@@ -1585,9 +1528,8 @@ class GameController {
         });
       }
 
-      // 4. VALIDAR TURNO: ¿Es realmente el turno de este participante?
+      // 4. VALIDAR TURNO
       const totalParticipants = game.participants.length;
-      // El índice esperado se calcula con el total de rondas acumuladas del juego
       const expectedTurnIndex = game.totalRounds % totalParticipants;
       const expectedParticipant = game.participants[expectedTurnIndex];
 
@@ -1603,7 +1545,7 @@ class GameController {
         });
       }
 
-      // 5. Validar si el participante ya jugó esta carta específica (seguridad extra)
+      // 5. Validar si el participante ya jugó esta carta específica
       const existingRound = await prisma.gameParticipantRound.findFirst({
         where: {
           participantId: parseInt(participantId),
@@ -1619,7 +1561,7 @@ class GameController {
         });
       }
 
-      // 6. Calcular Puntos (Lógica reutilizada)
+      // 6. Calcular Puntos (UPDATED: Sin multiplicador)
       const {
         songKnew = false,
         artistKnew = false,
@@ -1633,20 +1575,10 @@ class GameController {
       if (artistKnew) { points += 1; pointsBreakdown.artist = 1; }
       if (albumKnew && card.album) { points += 1; pointsBreakdown.album = 1; }
 
-      // Multiplicador de dificultad
-      let difficultyMultiplier = 1;
-      switch (card.difficulty) {
-        case 'medium': difficultyMultiplier = 1.5; break;
-        case 'hard': difficultyMultiplier = 2; break;
-      }
+      // Multiplier always 1
+      const difficultyMultiplier = 1;
 
-      if (points > 0) {
-        const bonus = Math.round((points * difficultyMultiplier) - points);
-        points = Math.round(points * difficultyMultiplier);
-        pointsBreakdown.difficultyBonus = bonus;
-      }
-
-      // 7. Transacción: Guardar ronda, actualizar jugador y AVANZAR EL TURNO DEL JUEGO
+      // 7. Transacción
       await prisma.$transaction(async (tx) => {
         // a. Guardar la ronda del participante
         await tx.gameParticipantRound.create({
@@ -1669,24 +1601,37 @@ class GameController {
           }
         });
 
-        // c. Actualizar juego: Sumar puntos totales Y AVANZAR RONDA (esto cambia el turno)
+        // c. Actualizar juego: Sumar puntos totales Y AVANZAR RONDA
         await tx.game.update({
           where: { id: parseInt(gameId) },
           data: {
             totalPoints: { increment: points },
-            totalRounds: { increment: 1 } // <--- ESTO ES LO QUE PASA EL TURNO AL SIGUIENTE
+            totalRounds: { increment: 1 }
           }
         });
       });
 
-      // 8. Calcular quién sigue para responder al frontend
+      // 8. Calcular quién sigue y obtener DATOS ACTUALIZADOS
       const nextTurnIndex = (game.totalRounds + 1) % totalParticipants;
       const nextParticipant = game.participants[nextTurnIndex];
 
-      // Recargar datos actualizados para responder
       const updatedGame = await prisma.game.findUnique({
         where: { id: parseInt(gameId) },
         select: { totalPoints: true, totalRounds: true }
+      });
+
+      // --- TRAER PARTICIPANTES ACTUALIZADOS + SUS CARTAS JUGADAS ---
+      const updatedParticipants = await prisma.gameParticipant.findMany({
+        where: { gameId: parseInt(gameId) },
+        orderBy: { turnOrder: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          totalPoints: true,
+          totalRounds: true,
+          turnOrder: true,
+          rounds: { select: { cardId: true } } // NEW
+        }
       });
 
       res.json({
@@ -1705,7 +1650,15 @@ class GameController {
             nextTurn: {
               participantId: nextParticipant.id.toString(),
               participantName: nextParticipant.name
-            }
+            },
+            participants: updatedParticipants.map(p => ({
+              id: p.id.toString(),
+              name: p.name,
+              totalPoints: p.totalPoints,
+              totalRounds: p.totalRounds,
+              turnOrder: p.turnOrder,
+              playedCardIds: p.rounds.map(r => r.cardId)
+            }))
           }
         }
       });
@@ -1739,7 +1692,7 @@ class GameController {
         });
       }
 
-      // Find the card and get correct answers
+      // Find the card
       const card = await prisma.card.findUnique({
         where: { id: parseInt(cardId) },
         include: {
@@ -1753,13 +1706,6 @@ class GameController {
             }
           }
         }
-      });
-
-      console.log('🔍 DEBUG scoreCard - Card found:', {
-        cardId: cardId,
-        cardName: card?.songName,
-        deckId: card?.deckId,
-        deckTitle: card?.deck?.title
       });
 
       if (!card) {
@@ -1795,7 +1741,7 @@ class GameController {
         albumKnew = false
       } = userKnew;
 
-      // Calculate points based on what user says they knew
+      // Calculate points (UPDATED: Sin multiplicador)
       let points = 0;
       let pointsBreakdown = {
         song: 0,
@@ -1817,25 +1763,8 @@ class GameController {
         pointsBreakdown.album = 1;
       }
 
-      // Apply difficulty multiplier
-      let difficultyMultiplier = 1;
-      switch (card.difficulty) {
-        case 'easy':
-          difficultyMultiplier = 1;
-          break;
-        case 'medium':
-          difficultyMultiplier = 1.5;
-          break;
-        case 'hard':
-          difficultyMultiplier = 2;
-          break;
-      }
-
-      if (points > 0) {
-        const bonus = Math.round((points * difficultyMultiplier) - points);
-        points = Math.round(points * difficultyMultiplier);
-        pointsBreakdown.difficultyBonus = bonus;
-      }
+      // Multiplier always 1
+      const difficultyMultiplier = 1;
 
       // Update user's total ranking for this deck
       const existingRanking = await prisma.ranking.findUnique({
