@@ -1,4 +1,12 @@
 require('dotenv').config();
+
+// Validate critical environment variables
+if (!process.env.DATABASE_URL) {
+  console.error('❌ ERROR: DATABASE_URL is not defined!');
+  console.error('Please set DATABASE_URL in your environment variables or .env file');
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
