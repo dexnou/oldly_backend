@@ -69,6 +69,8 @@ app.use(cors({
     // 3. Lista de orígenes permitidos en producción
     const allowedOrigins = [
       'https://ellena-hyperaemic-numbers.ngrok-free.dev',
+      'http://oldyfans.sourcingup.com:3009',
+      'https://oldyfans.sourcingup.com',
       process.env.FRONTEND_URL
     ].filter(Boolean);
     
@@ -76,11 +78,13 @@ app.use(cors({
     const v0PreviewRegex = /^https:\/\/.*\.vusercontent\.net$/;
     const vercelRegex = /^https:\/\/.*\.vercel\.app$/;
     const ngrokRegex = /^https:\/\/.*\.ngrok/;
+    const sourcingupRegex = /^https?:\/\/.*\.sourcingup\.com/;
     
     const isAllowed = allowedOrigins.includes(origin) || 
                       v0PreviewRegex.test(origin) || 
                       vercelRegex.test(origin) || 
-                      ngrokRegex.test(origin);
+                      ngrokRegex.test(origin) ||
+                      sourcingupRegex.test(origin);
 
     if (isAllowed) {
       console.log(`✅ CORS allowed for origin: ${origin}`);
