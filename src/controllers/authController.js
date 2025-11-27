@@ -201,7 +201,7 @@ class AuthController {
       // If this is a callback from OAuth (GET request), redirect to frontend with token
       if (req.method === 'GET') {
         const redirectUrl = req.query.redirect || '/';
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
         
         // Redirect to frontend callback page with token and redirect info
         return res.redirect(`${frontendUrl}/auth/callback?token=${token}&redirect=${encodeURIComponent(redirectUrl)}`);

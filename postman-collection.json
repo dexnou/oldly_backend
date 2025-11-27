@@ -141,13 +141,13 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{BASE_URL}}/api/auth/google?redirect=http://localhost:3000/dashboard",
+              "raw": "{{BASE_URL}}/api/auth/google?redirect=http://localhost:3001/dashboard",
               "host": ["{{BASE_URL}}"],
               "path": ["api", "auth", "google"],
               "query": [
                 {
                   "key": "redirect",
-                  "value": "http://localhost:3000/dashboard"
+                  "value": "http://localhost:3001/dashboard"
                 }
               ]
             }

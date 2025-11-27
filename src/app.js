@@ -57,9 +57,9 @@ app.use(cors({
     
     // Lista de orígenes permitidos
     const allowedOrigins = [
-      'http://localhost:3000',
       'http://localhost:3001',
-      'https://ellena-hyperaemic-numbers.ngrok-free.dev',
+      'http://localhost:3001',
+      'http://localhost:3001',
       process.env.FRONTEND_URL
     ];
     

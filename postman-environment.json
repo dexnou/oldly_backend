@@ -10,7 +10,7 @@
     },
     {
       "key": "FRONTEND_URL",
-      "value": "http://localhost:3000",
+      "value": "http://localhost:3001",
       "enabled": true,
       "type": "text"
     },

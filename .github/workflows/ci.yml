@@ -54,7 +54,7 @@ jobs:
       run: |
         npm start &
         sleep 10
-        curl -f http://localhost:3000/health || exit 1
+        curl -f http://localhost:3001/health || exit 1
       env:
         NODE_ENV: test
         DATABASE_URL: mysql://root:test@localhost:3306/test_db

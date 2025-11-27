@@ -81,7 +81,7 @@ AWS_REGION=us-east-1
 AWS_BUCKET_NAME=oldly-music-box
 
 # Frontend URL for CORS
-FRONTEND_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:3001
 ```
 
 ### Scripts disponibles

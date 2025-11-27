@@ -39,7 +39,7 @@ async function getCardTokens() {
       console.log(`${index + 1}. 🎵 ${card.songName} - ${card.artist.name}`);
       console.log(`   📦 Mazo: ${card.deck.title}`);
       console.log(`   🎯 Dificultad: ${card.difficulty}`);
-      console.log(`   🔗 URL: http://localhost:3000/play/${card.qrToken}`);
+      console.log(`   🔗 URL: http://localhost:3001/play/${card.qrToken}`);
       console.log(`   🆔 ID: ${card.id} | Token: ${card.qrToken}\n`);
     });
 
