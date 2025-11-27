@@ -51,7 +51,7 @@ async function main() {
     
     const deck80s = await prisma.deck.create({
       data: {
-        title: 'Oldly Fun 80s',
+        title: 'Oldy Funs 80s',
         description: 'Los mejores hits de los años 80 que marcaron una época en Argentina.',
         theme: '80s',
         buyLink: 'https://oldly.com/buy/80s-deck',
@@ -66,7 +66,7 @@ async function main() {
 
     const deckMovies = await prisma.deck.create({
       data: {
-        title: 'Oldly Fun Movies',
+        title: 'Oldy Fans Fun Movies',
         description: 'Bandas sonoras icónicas del cine.',
         theme: 'movies',
         buyLink: 'https://oldly.com/buy/movies-deck',

@@ -1,7 +1,8 @@
 const prisma = require('../utils/database');
 
 class CardController {
-  // GET /api/cards - List all cards (test endpoint)
+  
+// GET /api/cards - List all cards (test endpoint)
   static async getAllCards(req, res) {
     try {
       const { deckId, limit = 20 } = req.query;
@@ -28,10 +29,22 @@ class CardController {
               theme: true
             }
           },
+          // ACTUALIZADO: Traer más datos del artista
           artist: {
             select: {
               id: true,
-              name: true
+              name: true,
+              country: true, // Nuevo
+              genre: true    // Nuevo
+            }
+          },
+          // NUEVO: Traer datos del álbum
+          album: {
+            select: {
+              id: true,
+              title: true,
+              releaseYear: true,
+              coverUrl: true
             }
           }
         },
@@ -68,6 +81,11 @@ class CardController {
               ...card.artist,
               id: card.artist.id.toString()
             },
+            // NUEVO: Procesar álbum si existe
+            album: card.album ? {
+              ...card.album,
+              id: card.album.id.toString()
+            } : null,
             hasAccess,
             qrUrl: `${process.env.FRONTEND_URL}/qr/${card.qrToken}`
           };

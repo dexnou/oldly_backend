@@ -120,7 +120,7 @@ app.use(passport.initialize());
 app.get('/health', (req, res) => {
   res.json({
     success: true,
-    message: 'Oldly Fun Music Box API is running',
+    message: 'Oldy Fans Fun Music Box API is running',
     timestamp: new Date().toISOString(),
     version: '1.0.0'
   });
@@ -130,7 +130,7 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'Welcome to Oldly Fun Music Box API',
+    message: 'Welcome to Oldy Fans Fun Music Box API',
     version: '1.0.0',
     documentation: {
       health: '/health',
@@ -236,7 +236,7 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🎵 Oldly Fun Music Box API running on port ${PORT}`);
+  console.log(`🎵 Oldy Fans Fun Music Box API running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📖 API Documentation available at: http://localhost:${PORT}/health`);
 });

@@ -1,4 +1,4 @@
-# 🧪 Test Cases - Oldly Fun Music Box
+# 🧪 Test Cases - Oldy Fans Fun Music Box
 
 ## 📋 Manual Test Cases
 

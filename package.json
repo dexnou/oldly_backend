@@ -1,7 +1,7 @@
 {
   "name": "oldly-fun-music-box",
   "version": "1.0.0",
-  "description": "API backend para Oldly Fun Music Box - Juego musical de trivias con sistema de puntuación y autenticación",
+  "description": "API backend para Oldy Funs Music Box - Juego musical de trivias con sistema de puntuación y autenticación",
   "main": "src/app.js",
   "scripts": {
     "dev": "nodemon src/app.js",
