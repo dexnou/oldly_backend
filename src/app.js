@@ -15,9 +15,9 @@ const rankingRoutes = require('./routes/rankings');
 const adminRoutes = require('./routes/admin');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001; // Asegúrate que sea 3001 o diferente al front
 
-// Trust proxy (importante para ngrok, v0, y otros proxies)
+// Trust proxy
 app.set('trust proxy', true);
 
 // Security middleware
@@ -25,11 +25,11 @@ app.use(helmet());
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 200 : 1000, // More permissive for development
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 200 : 1000,
   message: {
     success: false,
-    message: 'Demasiadas solicitudes desde esta IP. Intenta de nuevo en unos minutos.',
+    message: 'Demasiadas solicitudes desde esta IP.',
     errorCode: 'RATE_LIMIT_EXCEEDED'
   },
   standardHeaders: true,
@@ -38,43 +38,43 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Handle preflight OPTIONS requests explicitly
-app.options('*', (req, res) => {
-  const origin = req.headers.origin;
-  console.log(`🔍 PREFLIGHT OPTIONS request from origin: ${origin} for ${req.path}`);
-  
-  res.header('Access-Control-Allow-Origin', origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-File-Name');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '3600');
-  res.sendStatus(200);
-});
+app.options('*', cors({
+  origin: true, // Refleja el origen de la petición para preflight
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cache-Control', 'X-File-Name']
+}));
 
 // CORS configuration
 app.use(cors({
   origin: function (origin, callback) {
     console.log(`🌐 CORS check for origin: ${origin}`);
     
-    // Lista de orígenes permitidos
+    // 1. Permitir requests sin origin (como Postman, cURL o server-to-server)
+    if (!origin) return callback(null, true);
+
+    // 2. Permitir siempre LOCALHOST (para desarrollo local seguro)
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+
+    // 3. Lista de orígenes permitidos en producción
     const allowedOrigins = [
-      'http://localhost:3001',
-      'http://localhost:3001',
-      'http://localhost:3001',
+      'https://ellena-hyperaemic-numbers.ngrok-free.dev',
       process.env.FRONTEND_URL
-    ];
+    ].filter(Boolean);
     
-    // Expresiones regulares para dominios permitidos
+    // 4. Expresiones regulares para dominios dinámicos
     const v0PreviewRegex = /^https:\/\/.*\.vusercontent\.net$/;
     const vercelRegex = /^https:\/\/.*\.vercel\.app$/;
     const ngrokRegex = /^https:\/\/.*\.ngrok/;
     
-    // Verificar con regex
-    const isV0Preview = origin && v0PreviewRegex.test(origin);
-    const isVercel = origin && vercelRegex.test(origin);
-    const isNgrok = origin && ngrokRegex.test(origin);
-    
-    // Permitir si está en la lista, es v0, vercel, ngrok, o no hay origin (requests del servidor)
-    if (!origin || allowedOrigins.includes(origin) || isV0Preview || isVercel || isNgrok) {
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      v0PreviewRegex.test(origin) || 
+                      vercelRegex.test(origin) || 
+                      ngrokRegex.test(origin);
+
+    if (isAllowed) {
       console.log(`✅ CORS allowed for origin: ${origin}`);
       callback(null, true);
     } else {
@@ -93,55 +93,38 @@ app.use(cors({
     'Cache-Control',
     'X-File-Name'
   ],
-  exposedHeaders: ['Authorization'],
-  optionsSuccessStatus: 200 // Para algunos navegadores legacy
+  exposedHeaders: ['Authorization']
 }));
 
-// Debug middleware (temporal)
+// Debug middleware
 app.use((req, res, next) => {
-  console.log(`🔍 ${req.method} ${req.path} - Origin: ${req.get('Origin')}`);
-  if (req.path === '/api/decks') {
-    console.log(`🎯 DECKS REQUEST - Method: ${req.method}, Query:`, req.query);
-  }
+  console.log(`🔍 ${req.method} ${req.path}`);
   next();
 });
 
 // Logging
-app.use(morgan('combined'));
+app.use(morgan('dev'));
 
-// Body parsing middleware
+// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Passport middleware
+// Passport
 app.use(passport.initialize());
 
-// Health check endpoint
+// Health check
 app.get('/health', (req, res) => {
   res.json({
     success: true,
-    message: 'Oldy Fans Fun Music Box API is running',
+    message: 'Oldly Fun Music Box API is running',
     timestamp: new Date().toISOString(),
     version: '1.0.0'
   });
 });
 
-// Root endpoint with API info
+// Root endpoint
 app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Welcome to Oldy Fans Fun Music Box API',
-    version: '1.0.0',
-    documentation: {
-      health: '/health',
-      auth: '/api/auth',
-      decks: '/api/decks',
-      cards: '/api/cards',
-      games: '/api/game',
-      rankings: '/api/rankings',
-      admin: '/api/admin'
-    }
-  });
+  res.json({ success: true, message: 'Welcome to Oldly Fun Music Box API' });
 });
 
 // API Routes
@@ -154,91 +137,40 @@ app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Endpoint no encontrado'
-  });
+  res.status(404).json({ success: false, message: 'Endpoint no encontrado' });
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('🚨 Error occurred:');
-  console.error('Error:', err);
-  console.error('Stack:', err.stack);
-  console.error('Request path:', req.path);
-  console.error('Request method:', req.method);
-  console.error('Request body:', req.body);
-  console.error('Request headers:', req.headers);
+  console.error('🚨 Error occurred:', err);
   
-  // Prisma errors
-  if (err.code) {
-    console.error('Prisma error code:', err.code);
-    switch (err.code) {
-      case 'P2002':
-        return res.status(400).json({
-          success: false,
-          message: 'Violación de restricción única',
-          errorCode: 'UNIQUE_CONSTRAINT_VIOLATION'
-        });
-      case 'P2025':
-        return res.status(404).json({
-          success: false,
-          message: 'Registro no encontrado',
-          errorCode: 'RECORD_NOT_FOUND'
-        });
-      default:
-        return res.status(500).json({
-          success: false,
-          message: 'Error de base de datos',
-          errorCode: 'DATABASE_ERROR',
-          details: process.env.NODE_ENV === 'development' ? err.message : undefined
-        });
-    }
+  // CORS error specific handling
+  if (err.message === 'No permitido por CORS') {
+    return res.status(403).json({
+      success: false,
+      message: 'Acceso denegado por política de CORS',
+      errorCode: 'CORS_ERROR'
+    });
   }
 
-  // Validation errors
-  if (err.name === 'ValidationError') {
+  if (err.code === 'P2002') {
     return res.status(400).json({
       success: false,
-      message: 'Error de validación',
-      details: err.message
+      message: 'Violación de restricción única',
+      errorCode: 'UNIQUE_CONSTRAINT_VIOLATION'
     });
   }
 
-  // JWT errors
-  if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Token inválido'
-    });
-  }
-
-  if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Token expirado'
-    });
-  }
-
-  // Default error
   res.status(500).json({
     success: false,
-    message: process.env.NODE_ENV === 'production' 
-      ? 'Error interno del servidor' 
-      : err.message,
-    errorCode: 'INTERNAL_ERROR',
-    details: process.env.NODE_ENV === 'development' ? {
-      stack: err.stack,
-      name: err.name
-    } : undefined
+    message: 'Error interno del servidor',
+    errorCode: 'INTERNAL_ERROR'
   });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🎵 Oldy Fans Fun Music Box API running on port ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📖 API Documentation available at: http://localhost:${PORT}/health`);
+  console.log(`🎵 Oldly Fun Music Box API running on port ${PORT}`);
 });
 
 module.exports = app;
