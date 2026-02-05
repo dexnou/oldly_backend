@@ -1,20 +1,30 @@
 const prisma = require('../utils/database');
 
 class CardController {
-  
-// GET /api/cards - List all cards (test endpoint)
+  // GET /api/cards - List all cards (test endpoint)
   static async getAllCards(req, res) {
     try {
-      const { deckId, limit = 20 } = req.query;
+      const { deckId, limit = 20, page = 1 } = req.query;
       const userId = req.user?.id;
+
+      const pageNum = parseInt(page);
+      const limitNum = parseInt(limit);
+      const skip = (pageNum - 1) * limitNum;
 
       const whereCondition = {};
       if (deckId) {
         whereCondition.deckId = parseInt(deckId);
       }
 
+      // Get total count for pagination
+      const totalCards = await prisma.card.count({
+        where: whereCondition
+      });
+
       const cards = await prisma.card.findMany({
         where: whereCondition,
+        skip: skip,
+        take: limitNum,
         select: {
           id: true,
           songName: true,
@@ -50,8 +60,7 @@ class CardController {
         },
         orderBy: {
           createdAt: 'desc'
-        },
-        take: parseInt(limit)
+        }
       });
 
       // Check user access for each card's deck
@@ -95,7 +104,13 @@ class CardController {
       res.json({
         success: true,
         data: {
-          cards: cardsWithAccess
+          cards: cardsWithAccess,
+          pagination: {
+            total: totalCards,
+            page: pageNum,
+            limit: limitNum,
+            totalPages: Math.ceil(totalCards / limitNum)
+          }
         }
       });
     } catch (error) {
@@ -115,7 +130,7 @@ class CardController {
 
       // Find card by ID or QR token
       let card;
-      
+
       // Common include for all queries to ensure we get deck labels
       const includeOptions = {
         artist: {
@@ -145,7 +160,7 @@ class CardController {
           }
         }
       };
-      
+
       if (id.length === 16) {
         card = await prisma.card.findUnique({
           where: { qrToken: id },
@@ -276,7 +291,7 @@ class CardController {
       }
 
       const qrUrl = `${process.env.FRONTEND_URL}/qr/${card.qrToken}`;
-      
+
       res.json({
         success: true,
         data: {
@@ -304,7 +319,7 @@ class CardController {
   static async revealCard(req, res) {
     try {
       const { id } = req.params;
-      
+
       const includeOptions = {
         artist: { select: { id: true, name: true, country: true, genre: true } },
         album: { select: { id: true, title: true, releaseYear: true, coverUrl: true } },
@@ -364,15 +379,15 @@ class CardController {
       const includeOptions = {
         artist: { select: { id: true, name: true, country: true, genre: true } },
         album: { select: { id: true, title: true, releaseYear: true, coverUrl: true } },
-        deck: { 
-          select: { 
-            id: true, 
-            title: true, 
+        deck: {
+          select: {
+            id: true,
+            title: true,
             theme: true,
             labelSong: true,   // NEW for casual too
             labelArtist: true, // NEW
             labelAlbum: true   // NEW 
-          } 
+          }
         }
       };
 

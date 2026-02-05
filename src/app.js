@@ -57,7 +57,7 @@ app.options('*', cors({
 app.use(cors({
   origin: function (origin, callback) {
     console.log(`🌐 CORS check for origin: ${origin}`);
-    
+
     // 1. Permitir requests sin origin (como Postman, cURL o server-to-server)
     if (!origin) return callback(null, true);
 
@@ -73,18 +73,18 @@ app.use(cors({
       'https://oldyfans.sourcingup.com',
       process.env.FRONTEND_URL
     ].filter(Boolean);
-    
+
     // 4. Expresiones regulares para dominios dinámicos
     const v0PreviewRegex = /^https:\/\/.*\.vusercontent\.net$/;
     const vercelRegex = /^https:\/\/.*\.vercel\.app$/;
     const ngrokRegex = /^https:\/\/.*\.ngrok/;
     const sourcingupRegex = /^https?:\/\/.*\.sourcingup\.com/;
-    
-    const isAllowed = allowedOrigins.includes(origin) || 
-                      v0PreviewRegex.test(origin) || 
-                      vercelRegex.test(origin) || 
-                      ngrokRegex.test(origin) ||
-                      sourcingupRegex.test(origin);
+
+    const isAllowed = allowedOrigins.includes(origin) ||
+      v0PreviewRegex.test(origin) ||
+      vercelRegex.test(origin) ||
+      ngrokRegex.test(origin) ||
+      sourcingupRegex.test(origin);
 
     if (isAllowed) {
       console.log(`✅ CORS allowed for origin: ${origin}`);
@@ -155,7 +155,7 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('🚨 Error occurred:', err);
-  
+
   // CORS error specific handling
   if (err.message === 'No permitido por CORS') {
     return res.status(403).json({
