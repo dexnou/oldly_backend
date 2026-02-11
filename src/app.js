@@ -30,65 +30,17 @@ app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: false, // Disable CORP explicitly to allow images from anywhere
 }));
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 200 : 1000,
-  message: {
-    success: false,
-    message: 'Demasiadas solicitudes desde esta IP.',
-    errorCode: 'RATE_LIMIT_EXCEEDED'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: { xForwardedForHeader: false }
-});
-app.use(limiter);
 
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
     console.log(`🌐 CORS check for origin: ${origin}`);
 
-    // 1. Permitir requests sin origin (como Postman, cURL o server-to-server)
-    if (!origin) return callback(null, true);
-
-    // 2. Permitir siempre LOCALHOST (para desarrollo local seguro)
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      return callback(null, true);
-    }
-
-    // 3. Lista de orígenes permitidos en producción
-    const allowedOrigins = [
-      'https://ellena-hyperaemic-numbers.ngrok-free.dev',
-      'http://oldyfans.sourcingup.com:3009',
-      'https://oldyfans.sourcingup.com',
-      'https://oldyfront.vercel.app', // Explicitly add specific Vercel domain
-      process.env.FRONTEND_URL
-    ].filter(Boolean);
-
-    // 4. Expresiones regulares para dominios dinámicos
-    const v0PreviewRegex = /^https:\/\/.*\.vusercontent\.net$/;
-    const vercelRegex = /^https:\/\/.*\.vercel\.app$/;
-    const ngrokRegex = /^https:\/\/.*\.ngrok/;
-    const sourcingupRegex = /^https?:\/\/.*\.sourcingup\.com/;
-
-    const isAllowed = allowedOrigins.includes(origin) ||
-      v0PreviewRegex.test(origin) ||
-      vercelRegex.test(origin) ||
-      ngrokRegex.test(origin) ||
-      sourcingupRegex.test(origin);
-
-    if (isAllowed) {
-      // console.log(`✅ CORS allowed for origin: ${origin}`);
-      callback(null, true);
-    } else {
-      console.log('🚨 CORS blocked origin:', origin);
-      callback(new Error('No permitido por CORS'));
-    }
+    // For debugging/production fix: Allow ALL origins temporarily to verify connection
+    // We will reflect the origin if it exists, or true if not
+    callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
