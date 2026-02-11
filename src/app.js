@@ -74,6 +74,7 @@ app.use(cors({
       'https://ellena-hyperaemic-numbers.ngrok-free.dev',
       'http://oldyfans.sourcingup.com:3009',
       'https://oldyfans.sourcingup.com',
+      'https://oldyfront.vercel.app', // Explicitly add specific Vercel domain
       process.env.FRONTEND_URL
     ].filter(Boolean);
 
