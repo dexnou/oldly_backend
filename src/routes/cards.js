@@ -19,4 +19,7 @@ router.get('/:id/reveal', authMiddleware, CardController.revealCard);
 // GET /api/cards - List all cards (test endpoint)
 router.get('/', optionalAuthMiddleware, CardController.getAllCards);
 
+// GET /api/cards/:id/qr-image - Generate and serve QR SVG
+router.get('/:id/qr-image', CardController.getCardQrImage);
+
 module.exports = router;

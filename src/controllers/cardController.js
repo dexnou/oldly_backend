@@ -454,6 +454,91 @@ class CardController {
       res.status(500).json({ success: false, message: 'Error interno del servidor', errorCode: 'INTERNAL_ERROR' });
     }
   }
+  // GET /api/cards/:id/qr-image
+  static async getCardQrImage(req, res) {
+    const axios = require('axios');
+    try {
+      const { id } = req.params;
+
+      // 1. Get card to ensure it exists and get QR token
+      let card;
+      if (id.length === 16) {
+        card = await prisma.card.findUnique({ where: { qrToken: id } });
+      } else {
+        card = await prisma.card.findUnique({ where: { id: parseInt(id) } });
+      }
+
+      if (!card) {
+        // Fallback to error image or text
+        res.setHeader('Content-Type', 'image/svg+xml');
+        return res.send('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><text x="10" y="50" font-family="Arial" font-size="20" fill="red">Card Not Found</text></svg>');
+      }
+
+      const ticketToken = card.qrToken;
+      // URL to which the QR will point (e.g. your web app for validating/playing)
+      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const qrTargetUrl = `${baseUrl}/play/${ticketToken}`;
+      const encodedUrl = encodeURIComponent(qrTargetUrl);
+
+      let qrCode = null;
+
+      // 2. Call API to generate QR (SVG)
+      try {
+        // Option A: Private API (Cliiver)
+        const apiToken = process.env.CLIIVER_API_TOKEN || '';
+        // Note: User provided this URL structure. Ensure it's correct for their specific use case.
+        // Assuming they want to generate a standard QR for the URL we built.
+        try {
+          const primaryRes = await axios.get(`https://productos.cliiver.com/api/qr/generateQrCode?url=${encodedUrl}`, {
+            headers: { 'Authorization': `Bearer ${apiToken}` },
+            timeout: 5000 // Add timeout to avoid hanging
+          });
+
+          // Verify valid SVG response
+          if (typeof primaryRes.data === 'string' && primaryRes.data.includes('<svg')) {
+            qrCode = primaryRes.data.trim();
+          } else {
+            // If it returns JSON with data property (sometimes APIs do this), check that too
+            if (primaryRes.data && primaryRes.data.data && typeof primaryRes.data.data === 'string' && primaryRes.data.data.includes('<svg')) {
+              qrCode = primaryRes.data.data.trim();
+            } else {
+              // throw new Error('Invalid SVG response from primary API');
+              // Silent fail to fallback
+            }
+          }
+        } catch (errPrimary) {
+          console.warn('[QR] Primary API failed, trying backup...', errPrimary.message);
+        }
+
+        if (!qrCode) {
+          // Option B: Fallback (QuickChart)
+          const backupRes = await axios.get(`https://quickchart.io/qr?text=${encodedUrl}&format=svg&margin=1&size=300`);
+          if (backupRes.data && typeof backupRes.data === 'string') {
+            qrCode = backupRes.data.trim();
+          }
+        }
+
+      } catch (e) {
+        console.error('[QR] Fatal Error generating QR:', e);
+      }
+
+      if (qrCode) {
+        res.setHeader('Content-Type', 'image/svg+xml');
+        // Cache for 1 hour
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.send(qrCode);
+      } else {
+        // Final fallback if both failed
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.send('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><text x="10" y="50" font-family="Arial" font-size="20" fill="red">QR Error</text></svg>');
+      }
+
+    } catch (error) {
+      console.error('Error serving QR image:', error);
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.send('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><text x="10" y="50" font-family="Arial" font-size="20" fill="red">Server Error</text></svg>');
+    }
+  }
 }
 
 module.exports = CardController;

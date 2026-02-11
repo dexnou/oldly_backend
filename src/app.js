@@ -26,10 +26,12 @@ const app = express();
 const PORT = process.env.PORT || 3001; // Asegúrate que sea 3001 o diferente al front
 
 // Trust proxy
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -42,6 +44,7 @@ const limiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false }
 });
 app.use(limiter);
 
