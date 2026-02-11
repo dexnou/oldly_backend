@@ -48,16 +48,8 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Handle preflight OPTIONS requests explicitly
-app.options('*', cors({
-  origin: true, // Refleja el origen de la petición para preflight
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cache-Control', 'X-File-Name']
-}));
-
 // CORS configuration
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
     console.log(`🌐 CORS check for origin: ${origin}`);
 
@@ -91,7 +83,7 @@ app.use(cors({
       sourcingupRegex.test(origin);
 
     if (isAllowed) {
-      console.log(`✅ CORS allowed for origin: ${origin}`);
+      // console.log(`✅ CORS allowed for origin: ${origin}`);
       callback(null, true);
     } else {
       console.log('🚨 CORS blocked origin:', origin);
@@ -110,7 +102,13 @@ app.use(cors({
     'X-File-Name'
   ],
   exposedHeaders: ['Authorization']
-}));
+};
+
+// Handle preflight OPTIONS requests explicitly with the same config
+app.options('*', cors(corsOptions));
+
+// CORS configuration for all requests
+app.use(cors(corsOptions));
 
 // Debug middleware
 app.use((req, res, next) => {
