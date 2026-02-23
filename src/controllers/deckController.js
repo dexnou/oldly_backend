@@ -20,7 +20,7 @@ class DeckController {
         whereCondition.theme = theme;
       }
 
-      const decks = await prisma.deck.findMany({
+      const deckQuery = prisma.deck.findMany({
         where: whereCondition,
         select: {
           id: true,
@@ -41,17 +41,12 @@ class DeckController {
         }
       });
 
-      // If user is authenticated, check which decks they have access to
-      let userDecks = [];
-      if (userId) {
-        userDecks = await prisma.userDeck.findMany({
-          where: { userId: parseInt(userId) },
-          select: { deckId: true }
-        });
-        
-        // Debug logs
-        console.log('🔍 DEBUG - userDecks found:', userDecks);
-      }
+      const userDeckQuery = userId ? prisma.userDeck.findMany({
+        where: { userId: parseInt(userId) },
+        select: { deckId: true }
+      }) : Promise.resolve([]);
+
+      const [decks, userDecks] = await Promise.all([deckQuery, userDeckQuery]);
 
       const userDeckIds = userDecks.map(ud => ud.deckId);
       console.log('🔍 DEBUG - userDeckIds:', userDeckIds);
@@ -59,7 +54,7 @@ class DeckController {
       const decksWithAccess = decks.map(deck => {
         const hasAccess = userId ? userDeckIds.includes(deck.id) : false;
         console.log(`🔍 DEBUG - Deck ${deck.id} (${deck.title}): hasAccess = ${hasAccess}, userDeckIds:`, userDeckIds, 'deck.id type:', typeof deck.id);
-        
+
         return {
           ...deck,
           id: deck.id.toString(),
@@ -92,9 +87,9 @@ class DeckController {
       console.log('🔍 DEBUG - getDeckById called for deckId:', id, 'userId:', userId);
 
       const deck = await prisma.deck.findUnique({
-        where: { 
+        where: {
           id: parseInt(id),
-          active: true 
+          active: true
         },
         select: {
           id: true,
@@ -281,9 +276,9 @@ class DeckController {
 
       // Check if deck exists and is active
       const deck = await prisma.deck.findUnique({
-        where: { 
+        where: {
           id: parseInt(id),
-          active: true 
+          active: true
         }
       });
 
@@ -317,7 +312,7 @@ class DeckController {
 
       // Grant access
       console.log('🚀 DEBUG - Creating userDeck with userId:', parseInt(userId), 'deckId:', parseInt(id), 'source:', source);
-      
+
       const newUserDeck = await prisma.userDeck.create({
         data: {
           userId: parseInt(userId),

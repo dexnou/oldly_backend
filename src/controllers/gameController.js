@@ -54,9 +54,9 @@ class GameController {
 
       // Check if deck exists and is active
       const deck = await prisma.deck.findUnique({
-        where: { 
+        where: {
           id: parseInt(deckId),
-          active: true 
+          active: true
         },
         include: {
           _count: {
@@ -171,10 +171,10 @@ class GameController {
   static async submitRound(req, res) {
     try {
       const { id: gameId } = req.params;
-      const { 
-        cardId, 
-        songGuess, 
-        artistGuess, 
+      const {
+        cardId,
+        songGuess,
+        artistGuess,
         albumGuess,
         participantAnswers // Array for score mode: [{ participantId, songGuess, artistGuess, albumGuess }]
       } = req.body;
@@ -190,7 +190,7 @@ class GameController {
 
       // Find game and verify ownership
       const game = await prisma.game.findUnique({
-        where: { 
+        where: {
           id: parseInt(gameId),
           userId: parseInt(userId),
           status: 'started'
@@ -254,17 +254,17 @@ class GameController {
       const normalize = (str) => {
         if (!str) return '';
         return str.toLowerCase()
-                 .trim()
-                 .replace(/[^\w\s]/g, '')
-                 .replace(/\s+/g, ' ');
+          .trim()
+          .replace(/[^\w\s]/g, '')
+          .replace(/\s+/g, ' ');
       };
 
       // Calculate points function (UPDATED: Sin multiplicador)
       const calculatePoints = (songGuess, artistGuess, albumGuess) => {
         const songCorrect = normalize(songGuess) === normalize(card.songName);
         const artistCorrect = normalize(artistGuess) === normalize(card.artist.name);
-        const albumCorrect = card.album ? 
-          normalize(albumGuess) === normalize(card.album.title) : 
+        const albumCorrect = card.album ?
+          normalize(albumGuess) === normalize(card.album.title) :
           !albumGuess;
 
         let points = 0;
@@ -453,7 +453,7 @@ class GameController {
 
         for (const answer of participantAnswers) {
           const result = calculatePoints(answer.songGuess, answer.artistGuess, answer.albumGuess);
-          
+
           const participantRound = {
             participantId: parseInt(answer.participantId),
             cardId: parseInt(cardId),
@@ -594,7 +594,7 @@ class GameController {
 
       // Find game and verify ownership
       const game = await prisma.game.findUnique({
-        where: { 
+        where: {
           id: parseInt(gameId),
           userId: parseInt(userId),
           status: 'started'
@@ -708,7 +708,7 @@ class GameController {
       const userId = req.user.id;
 
       const game = await prisma.game.findUnique({
-        where: { 
+        where: {
           id: parseInt(gameId),
           userId: parseInt(userId)
         },
@@ -830,7 +830,7 @@ class GameController {
       const now = new Date();
       const gameStartTime = new Date(activeGame.startedAt);
       const hoursSinceStart = (now - gameStartTime) / (1000 * 60 * 60);
-      
+
       if (hoursSinceStart >= 1) {
         // Game has expired, mark it as finished
         await prisma.game.update({
@@ -897,8 +897,8 @@ class GameController {
       console.error('Stack trace:', error.stack);
       res.status(500).json({
         success: false,
-        message: process.env.NODE_ENV === 'production' 
-          ? 'Error interno del servidor' 
+        message: process.env.NODE_ENV === 'production'
+          ? 'Error interno del servidor'
           : `Error getting active competitive game: ${error.message}`,
         errorCode: 'INTERNAL_ERROR',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
@@ -996,9 +996,9 @@ class GameController {
 
       // Check if deck exists and is active
       const deck = await prisma.deck.findUnique({
-        where: { 
+        where: {
           id: parseInt(deckId),
-          active: true 
+          active: true
         },
         include: {
           _count: {
@@ -1037,7 +1037,7 @@ class GameController {
         const now = new Date();
         const gameStartTime = new Date(activeGame.startedAt);
         const hoursSinceStart = (now - gameStartTime) / (1000 * 60 * 60);
-        
+
         if (hoursSinceStart >= 1) {
           // Game has expired, mark it as finished and allow new game
           await prisma.game.update({
@@ -1138,8 +1138,8 @@ class GameController {
       console.error('Stack trace:', error.stack);
       res.status(500).json({
         success: false,
-        message: process.env.NODE_ENV === 'production' 
-          ? 'Error interno del servidor' 
+        message: process.env.NODE_ENV === 'production'
+          ? 'Error interno del servidor'
           : `Error starting competitive game: ${error.message}`,
         errorCode: 'INTERNAL_ERROR',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
@@ -1173,7 +1173,7 @@ class GameController {
 
       // Find game and verify ownership + mode
       const game = await prisma.game.findUnique({
-        where: { 
+        where: {
           id: parseInt(gameId),
           userId: parseInt(userId),
           status: 'started'
@@ -1241,7 +1241,7 @@ class GameController {
 
       // Validate participants exist and answers format
       const participantIds = participantAnswers.map(p => parseInt(p.participantId));
-      
+
       // Validate the structure of participantAnswers
       for (const answer of participantAnswers) {
         if (!answer.userKnew || typeof answer.userKnew !== 'object') {
@@ -1252,7 +1252,7 @@ class GameController {
           });
         }
       }
-      
+
       const validParticipants = await prisma.gameParticipant.findMany({
         where: {
           gameId: parseInt(gameId),
@@ -1332,7 +1332,7 @@ class GameController {
 
       for (const answer of participantAnswers) {
         const result = calculatePoints(answer.userKnew || {});
-        
+
         const participantRound = {
           participantId: parseInt(answer.participantId),
           cardId: parseInt(cardId),
@@ -1358,16 +1358,18 @@ class GameController {
           data: participantRounds
         });
 
-        // Update participant totals
-        for (const round of participantRounds) {
-          await tx.gameParticipant.update({
-            where: { id: round.participantId },
-            data: {
-              totalPoints: { increment: round.points },
-              totalRounds: { increment: 1 }
-            }
-          });
-        }
+        // Update participant totals concurrently
+        await Promise.all(
+          participantRounds.map(round =>
+            tx.gameParticipant.update({
+              where: { id: round.participantId },
+              data: {
+                totalPoints: { increment: round.points },
+                totalRounds: { increment: 1 }
+              }
+            })
+          )
+        );
 
         // Update game totals
         const totalPoints = participantRounds.reduce((sum, round) => sum + round.points, 0);
@@ -1380,20 +1382,19 @@ class GameController {
         });
       });
 
-      // Get updated participants and game data
-      const updatedParticipants = await prisma.gameParticipant.findMany({
-        where: { gameId: parseInt(gameId) },
-        orderBy: { totalPoints: 'desc' }
-      });
-
-      const updatedGame = await prisma.game.findUnique({
-        where: { id: parseInt(gameId) }
-      });
-
-      // Get total cards in deck for progress tracking
-      const totalCardsInDeck = await prisma.card.count({
-        where: { deckId: game.deckId }
-      });
+      // Get updated participants, game data, and total cards concurrently
+      const [updatedParticipants, updatedGame, totalCardsInDeck] = await Promise.all([
+        prisma.gameParticipant.findMany({
+          where: { gameId: parseInt(gameId) },
+          orderBy: { totalPoints: 'desc' }
+        }),
+        prisma.game.findUnique({
+          where: { id: parseInt(gameId) }
+        }),
+        prisma.card.count({
+          where: { deckId: game.deckId }
+        })
+      ]);
 
       res.json({
         success: true,
@@ -1450,7 +1451,7 @@ class GameController {
       });
     }
   }
-  
+
   // POST /api/game/:id/submit-turn-round
   static async submitTurnBasedRound(req, res) {
     try {
@@ -1477,9 +1478,9 @@ class GameController {
 
       // 2. Buscar el juego y verificar propiedad
       const game = await prisma.game.findUnique({
-        where: { 
+        where: {
           id: parseInt(gameId),
-          userId: parseInt(userId), 
+          userId: parseInt(userId),
           status: 'started'
         },
         include: {
@@ -1673,13 +1674,13 @@ class GameController {
       });
     }
   }
-  
+
   // POST /api/game/score-card
   static async scoreCard(req, res) {
     try {
-      const { 
-        cardId, 
-        userKnew = {} 
+      const {
+        cardId,
+        userKnew = {}
       } = req.body;
       const userId = req.user.id;
 
@@ -1821,10 +1822,10 @@ class GameController {
             explanation: {
               song: songKnew ? `+1 punto por conocer la canción` : `0 puntos - no conocías la canción`,
               artist: artistKnew ? `+1 punto por conocer el artista` : `0 puntos - no conocías el artista`,
-              album: card.album ? 
-                (albumKnew ? `+1 punto por conocer el álbum` : `0 puntos - no conocías el álbum`) : 
+              album: card.album ?
+                (albumKnew ? `+1 punto por conocer el álbum` : `0 puntos - no conocías el álbum`) :
                 `Sin álbum disponible`,
-              difficulty: points > 0 ? 
+              difficulty: points > 0 ?
                 `+${pointsBreakdown.difficultyBonus} puntos de bonus por dificultad ${card.difficulty}` :
                 `Sin bonus - no obtuviste puntos base`
             }

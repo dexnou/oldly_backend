@@ -16,52 +16,53 @@ class CardController {
         whereCondition.deckId = parseInt(deckId);
       }
 
-      // Get total count for pagination
-      const totalCards = await prisma.card.count({
-        where: whereCondition
-      });
-
-      const cards = await prisma.card.findMany({
-        where: whereCondition,
-        skip: skip,
-        take: limitNum,
-        select: {
-          id: true,
-          songName: true,
-          qrToken: true,
-          difficulty: true,
-          previewUrl: true,
-          spotifyUrl: true,
-          deck: {
-            select: {
-              id: true,
-              title: true,
-              theme: true
+      // Get total count and cards for pagination concurrently
+      const [totalCards, cards] = await Promise.all([
+        prisma.card.count({
+          where: whereCondition
+        }),
+        prisma.card.findMany({
+          where: whereCondition,
+          skip: skip,
+          take: limitNum,
+          select: {
+            id: true,
+            songName: true,
+            qrToken: true,
+            difficulty: true,
+            previewUrl: true,
+            spotifyUrl: true,
+            deck: {
+              select: {
+                id: true,
+                title: true,
+                theme: true
+              }
+            },
+            // ACTUALIZADO: Traer más datos del artista
+            artist: {
+              select: {
+                id: true,
+                name: true,
+                country: true, // Nuevo
+                genre: true    // Nuevo
+              }
+            },
+            // NUEVO: Traer datos del álbum
+            album: {
+              select: {
+                id: true,
+                title: true,
+                releaseYear: true,
+                coverUrl: true
+              }
             }
           },
-          // ACTUALIZADO: Traer más datos del artista
-          artist: {
-            select: {
-              id: true,
-              name: true,
-              country: true, // Nuevo
-              genre: true    // Nuevo
-            }
-          },
-          // NUEVO: Traer datos del álbum
-          album: {
-            select: {
-              id: true,
-              title: true,
-              releaseYear: true,
-              coverUrl: true
-            }
+          orderBy: {
+            createdAt: 'desc'
           }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
+        })
+      ]);
 
       // Check user access for each card's deck
       const cardsWithAccess = await Promise.all(
@@ -476,20 +477,21 @@ class CardController {
 
       const ticketToken = card.qrToken;
       // URL to which the QR will point (e.g. your web app for validating/playing)
-      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      const qrTargetUrl = `${baseUrl}/play/${ticketToken}`;
+      const baseUrl = process.env.FRONTEND_URL;
+      const qrTargetUrl = `${baseUrl}/qr/${ticketToken}`;
       const encodedUrl = encodeURIComponent(qrTargetUrl);
+
+      console.log(`[QR DEBUG] Generating QR for: ${qrTargetUrl} (baseUrl: ${baseUrl})`);
 
       let qrCode = null;
 
       // 2. Call API to generate QR (SVG)
       try {
+        const cacheBuster = Date.now();
         // Option A: Private API (Cliiver)
         const apiToken = process.env.CLIIVER_API_TOKEN || '';
-        // Note: User provided this URL structure. Ensure it's correct for their specific use case.
-        // Assuming they want to generate a standard QR for the URL we built.
         try {
-          const primaryRes = await axios.get(`https://productos.cliiver.com/api/qr/generateQrCode?url=${encodedUrl}`, {
+          const primaryRes = await axios.get(`https://productos.cliiver.com/api/qr/generateQrCode?url=${encodedUrl}&t=${cacheBuster}`, {
             headers: { 'Authorization': `Bearer ${apiToken}` },
             timeout: 5000 // Add timeout to avoid hanging
           });
@@ -512,7 +514,7 @@ class CardController {
 
         if (!qrCode) {
           // Option B: Fallback (QuickChart)
-          const backupRes = await axios.get(`https://quickchart.io/qr?text=${encodedUrl}&format=svg&margin=1&size=300`);
+          const backupRes = await axios.get(`https://quickchart.io/qr?text=${encodedUrl}&format=svg&margin=1&size=300&t=${cacheBuster}`);
           if (backupRes.data && typeof backupRes.data === 'string') {
             qrCode = backupRes.data.trim();
           }
@@ -524,8 +526,10 @@ class CardController {
 
       if (qrCode) {
         res.setHeader('Content-Type', 'image/svg+xml');
-        // Cache for 1 hour
-        res.setHeader('Cache-Control', 'public, max-age=3600');
+        // Cache control para forzar que el navegador no guarde versiones viejas durante las pruebas
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         res.send(qrCode);
       } else {
         // Final fallback if both failed
