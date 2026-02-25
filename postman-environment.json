@@ -4,13 +4,13 @@
   "values": [
     {
       "key": "BASE_URL",
-      "value": "http://localhost:3001",
+      "value": "http://localhost:3010",
       "enabled": true,
       "type": "text"
     },
     {
       "key": "FRONTEND_URL",
-      "value": "http://localhost:3001",
+      "value": "http://localhost:3010",
       "enabled": true,
       "type": "text"
     },

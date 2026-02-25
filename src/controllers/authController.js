@@ -51,14 +51,14 @@ class AuthController {
         email: user.email,
         type: 'user'
       };
-      
-      console.log('🔍 NORMAL LOGIN - Generating token for user:', { 
-        id: user.id, 
-        email: user.email, 
+
+      console.log('🔍 NORMAL LOGIN - Generating token for user:', {
+        id: user.id,
+        email: user.email,
         isGoogle: !!user.googleId,
-        payload: tokenPayload 
+        payload: tokenPayload
       });
-      
+
       const token = AuthService.generateToken(tokenPayload);
 
       res.json({
@@ -188,21 +188,25 @@ class AuthController {
         email: user.email,
         type: 'user'
       };
-      
-      console.log('🔍 GOOGLE AUTH - Generating token for user:', { 
-        id: user.id, 
-        email: user.email, 
+
+      console.log('🔍 GOOGLE AUTH - Generating token for user:', {
+        id: user.id,
+        email: user.email,
         isGoogle: !!user.googleId,
-        payload: tokenPayload 
+        payload: tokenPayload
       });
-      
+
       const token = AuthService.generateToken(tokenPayload);
 
       // If this is a callback from OAuth (GET request), redirect to frontend with token
       if (req.method === 'GET') {
         const redirectUrl = req.query.redirect || '/';
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-        
+        const frontendUrl = process.env.FRONTEND_URL;
+        if (!frontendUrl) {
+          console.error('❌ ERROR: FRONTEND_URL is not defined in environment variables!');
+          return res.status(500).json({ success: false, message: 'Configuración del servidor incompleta' });
+        }
+
         // Redirect to frontend callback page with token and redirect info
         return res.redirect(`${frontendUrl}/auth/callback?token=${token}&redirect=${encodeURIComponent(redirectUrl)}`);
       }

@@ -60,7 +60,7 @@ Crear archivo `.env` basado en `.env.example`:
 ```env
 # Environment Configuration
 NODE_ENV=development
-PORT=3001
+PORT=3010
 
 # Database
 DATABASE_URL="mysql://usuario:contraseña@localhost:3306/oldly_fun_music_box"
@@ -72,7 +72,7 @@ JWT_EXPIRES_IN=7d
 # Google OAuth
 GOOGLE_CLIENT_ID=tu_google_client_id
 GOOGLE_CLIENT_SECRET=tu_google_client_secret
-GOOGLE_CALLBACK_URL=http://localhost:3001/api/auth/google/callback
+GOOGLE_CALLBACK_URL=http://localhost:3010/api/auth/google/callback
 
 # AWS S3 / DigitalOcean Spaces
 AWS_ACCESS_KEY_ID=tu_access_key
@@ -81,7 +81,7 @@ AWS_REGION=us-east-1
 AWS_BUCKET_NAME=oldly-music-box
 
 # Frontend URL for CORS
-FRONTEND_URL=http://localhost:3001
+FRONTEND_URL=http://localhost:3010
 ```
 
 ### Scripts disponibles
@@ -552,8 +552,8 @@ Obtener ranking de un mazo
    - Application type: Web application
 
 4. **Configurar URLs:**
-   - Authorized JavaScript origins: `http://localhost:3001`
-   - Authorized redirect URIs: `http://localhost:3001/api/auth/google/callback`
+   - Authorized JavaScript origins: `http://localhost:3010`
+   - Authorized redirect URIs: `http://localhost:3010/api/auth/google/callback`
 
 5. **Copiar credenciales al .env:**
    ```env
@@ -643,7 +643,7 @@ GET {{BASE_URL}}/api/rankings/1?limit=10
 ### Variables de Entorno para Postman
 ```json
 {
-  "BASE_URL": "http://localhost:3001",
+  "BASE_URL": "http://localhost:3010",
   "token": "Bearer_token_aqui"
 }
 ```
@@ -735,7 +735,7 @@ npm start
 docker build -t oldly-backend .
 
 # Ejecutar contenedor
-docker run -p 3001:3001 --env-file .env oldly-backend
+docker run -p 3010:3010 --env-file .env oldly-backend
 ```
 
 ## 📄 Licencia

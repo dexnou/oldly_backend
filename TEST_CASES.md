@@ -156,8 +156,8 @@
 1. Importar `postman-collection.json`
 2. Importar `postman-environment.json`
 3. Configurar variables de entorno:
-   - `BASE_URL`: http://localhost:3001
-   - `FRONTEND_URL`: http://localhost:3001
+   - `BASE_URL`: http://localhost:3010
+   - `FRONTEND_URL`: http://localhost:3010
 
 ### Ejecución de tests:
 1. **Authentication Flow**: Ejecutar carpeta "🔐 Authentication"

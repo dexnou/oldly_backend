@@ -8,7 +8,7 @@
   "variable": [
     {
       "key": "BASE_URL",
-      "value": "http://localhost:3001",
+      "value": "http://localhost:3010",
       "type": "string"
     },
     {
@@ -42,8 +42,14 @@
             },
             "url": {
               "raw": "{{BASE_URL}}/api/auth/register",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "auth", "register"]
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
             }
           },
           "event": [
@@ -81,8 +87,14 @@
             },
             "url": {
               "raw": "{{BASE_URL}}/api/auth/login",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "auth", "login"]
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
             }
           },
           "event": [
@@ -116,8 +128,14 @@
             ],
             "url": {
               "raw": "{{BASE_URL}}/api/auth/me",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "auth", "me"]
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
             }
           },
           "event": [
@@ -141,13 +159,19 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{BASE_URL}}/api/auth/google?redirect=http://localhost:3001/dashboard",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "auth", "google"],
+              "raw": "{{BASE_URL}}/api/auth/google?redirect=http://localhost:3010/dashboard",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "google"
+              ],
               "query": [
                 {
                   "key": "redirect",
-                  "value": "http://localhost:3001/dashboard"
+                  "value": "http://localhost:3010/dashboard"
                 }
               ]
             }
@@ -164,8 +188,14 @@
             "method": "GET",
             "url": {
               "raw": "{{BASE_URL}}/api/cards/:qrToken",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "cards", ":qrToken"],
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "cards",
+                ":qrToken"
+              ],
               "variable": [
                 {
                   "key": "qrToken",
@@ -212,8 +242,15 @@
             },
             "url": {
               "raw": "{{BASE_URL}}/api/cards/:cardId/play",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "cards", ":cardId", "play"],
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "cards",
+                ":cardId",
+                "play"
+              ],
               "variable": [
                 {
                   "key": "cardId",
@@ -244,8 +281,15 @@
             },
             "url": {
               "raw": "{{BASE_URL}}/api/cards/:cardId/reveal",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "cards", ":cardId", "reveal"],
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "cards",
+                ":cardId",
+                "reveal"
+              ],
               "variable": [
                 {
                   "key": "cardId",
@@ -273,8 +317,15 @@
             ],
             "url": {
               "raw": "{{BASE_URL}}/api/game/active-competitive/:deckId",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "game", "active-competitive", ":deckId"],
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "game",
+                "active-competitive",
+                ":deckId"
+              ],
               "variable": [
                 {
                   "key": "deckId",
@@ -323,8 +374,14 @@
             },
             "url": {
               "raw": "{{BASE_URL}}/api/game/start-competitive",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "game", "start-competitive"]
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "game",
+                "start-competitive"
+              ]
             }
           },
           "event": [
@@ -365,8 +422,15 @@
             },
             "url": {
               "raw": "{{BASE_URL}}/api/game/:gameId/submit-competitive-round",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "game", ":gameId", "submit-competitive-round"],
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "game",
+                ":gameId",
+                "submit-competitive-round"
+              ],
               "variable": [
                 {
                   "key": "gameId",
@@ -388,8 +452,13 @@
             "method": "GET",
             "url": {
               "raw": "{{BASE_URL}}/api/decks",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "decks"]
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "decks"
+              ]
             }
           },
           "event": [
@@ -422,8 +491,15 @@
             ],
             "url": {
               "raw": "{{BASE_URL}}/api/decks/:deckId/activate",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "decks", ":deckId", "activate"],
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "decks",
+                ":deckId",
+                "activate"
+              ],
               "variable": [
                 {
                   "key": "deckId",
@@ -445,8 +521,14 @@
             "method": "GET",
             "url": {
               "raw": "{{BASE_URL}}/api/rankings/:deckId?limit=10",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "rankings", ":deckId"],
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "rankings",
+                ":deckId"
+              ],
               "query": [
                 {
                   "key": "limit",
@@ -498,8 +580,14 @@
             },
             "url": {
               "raw": "{{BASE_URL}}/api/admin/login",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "admin", "login"]
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "login"
+              ]
             }
           },
           "event": [
@@ -532,8 +620,14 @@
             ],
             "url": {
               "raw": "{{BASE_URL}}/api/admin/stats",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "admin", "stats"]
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "stats"
+              ]
             }
           }
         },
@@ -549,8 +643,15 @@
             ],
             "url": {
               "raw": "{{BASE_URL}}/api/admin/users/export?format=csv",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "admin", "users", "export"],
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "export"
+              ],
               "query": [
                 {
                   "key": "format",
@@ -571,8 +672,13 @@
             "method": "GET",
             "url": {
               "raw": "{{BASE_URL}}/api/health",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "health"]
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
             }
           },
           "event": [

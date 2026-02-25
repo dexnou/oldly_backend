@@ -23,7 +23,11 @@ const rankingRoutes = require('./routes/rankings');
 const adminRoutes = require('./routes/admin');
 
 const app = express();
-const PORT = process.env.PORT || 3001; // Asegúrate que sea 3001 o diferente al front
+const PORT = process.env.PORT;
+if (!PORT) {
+  console.error('❌ ERROR: PORT is not defined in environment variables!');
+  process.exit(1);
+}
 
 // Trust proxy
 app.set('trust proxy', 1);
