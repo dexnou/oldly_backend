@@ -1,19 +1,21 @@
 const prisma = require('../utils/database');
 const AuthService = require('../services/authService');
 
+const PUBLIC_FRONTEND_URL = 'https://oldyfans.com.ar';
+
 class AdminController {
-// POST /api/admin/decks (Create or Update Deck)
+  // POST /api/admin/decks (Create or Update Deck)
   static async createOrUpdateDeck(req, res) {
     try {
       // CORRECCIÓN: Buscar el ID en el body O en los parámetros de la URL
       const id = req.body.id || req.params.id;
 
-      const { 
-        title, 
-        description, 
-        theme, 
-        buyLink, 
-        coverImage, 
+      const {
+        title,
+        description,
+        theme,
+        buyLink,
+        coverImage,
         active = true,
         labelSong,
         labelArtist,
@@ -69,7 +71,7 @@ class AdminController {
       });
     } catch (error) {
       console.error('Error creando/actualizando mazo:', error);
-      
+
       if (error.code === 'P2002') {
         return res.status(400).json({
           success: false,
@@ -92,7 +94,7 @@ class AdminController {
           _count: { select: { cards: true } }
         }
       });
-      
+
       res.json({ success: true, data: { decks } });
     } catch (error) {
       console.error(error);
@@ -100,7 +102,7 @@ class AdminController {
     }
   }
 
-// POST /api/admin/cards - Crear carta
+  // POST /api/admin/cards - Crear carta
   static async createCard(req, res) {
     try {
       const {
@@ -177,7 +179,7 @@ class AdminController {
       // 3. Generar token QR único
       let qrToken;
       let tokenExists = true;
-      
+
       while (tokenExists) {
         qrToken = AuthService.generateQrToken();
         const existingCard = await prisma.card.findUnique({
@@ -186,13 +188,13 @@ class AdminController {
         tokenExists = !!existingCard;
       }
 
-      // 4. Crear data QR
-      const qrRedirectUrl = `${process.env.FRONTEND_URL}/qr/${qrToken}`;
+      // 4. Crear data QR (Usamos siempre la URL pública de producción por requerimiento)
+      const qrRedirectUrl = `${PUBLIC_FRONTEND_URL}/play/${qrToken}`;
       const qrCode = JSON.stringify({
         token: qrToken,
         redirectUrl: qrRedirectUrl,
-        cardId: null, 
-        gameUrl: null 
+        cardId: null,
+        gameUrl: null
       });
 
       // 5. Crear la carta
@@ -240,39 +242,39 @@ class AdminController {
     }
   }
 
-// PUT /api/admin/cards/:id - Actualizar carta (CORREGIDO)
+  // PUT /api/admin/cards/:id - Actualizar carta (CORREGIDO)
   static async updateCard(req, res) {
     try {
       const { id } = req.params;
-      const { 
-        deckId, 
-        artistName, 
-        artistCountry, 
-        artistGenre, 
-        albumTitle, 
-        albumReleaseYear, 
-        albumCoverUrl, 
-        songName, 
-        spotifyUrl, 
-        previewUrl, 
-        difficulty 
+      const {
+        deckId,
+        artistName,
+        artistCountry,
+        artistGenre,
+        albumTitle,
+        albumReleaseYear,
+        albumCoverUrl,
+        songName,
+        spotifyUrl,
+        previewUrl,
+        difficulty
       } = req.body;
 
       // 1. Actualizar o crear artista
       // Usamos upsert buscando por nombre y país (o solo nombre si país es null)
       // Nota: Prisma requiere un índice único en [name, country] para esto, que ya tienes en el schema.
       const artist = await prisma.artist.upsert({
-        where: { 
-          name_country: { 
-            name: artistName, 
+        where: {
+          name_country: {
+            name: artistName,
             country: artistCountry || null // Asegura que undefined sea null para coincidir con la DB
-          } 
+          }
         },
         update: { genre: artistGenre },
-        create: { 
-          name: artistName, 
-          country: artistCountry, 
-          genre: artistGenre 
+        create: {
+          name: artistName,
+          country: artistCountry,
+          genre: artistGenre
         }
       });
 
@@ -284,29 +286,29 @@ class AdminController {
 
         // Intentamos buscar primero para evitar error de Unique Constraint si el upsert falla por IDs distintos
         album = await prisma.album.findFirst({
-            where: {
-                artistId: artist.id,
-                title: albumTitle,
-                releaseYear: releaseYearInt
-            }
+          where: {
+            artistId: artist.id,
+            title: albumTitle,
+            releaseYear: releaseYearInt
+          }
         });
 
         if (album) {
-            // Si existe, actualizamos URL
-            album = await prisma.album.update({
-                where: { id: album.id },
-                data: { coverUrl: albumCoverUrl }
-            });
+          // Si existe, actualizamos URL
+          album = await prisma.album.update({
+            where: { id: album.id },
+            data: { coverUrl: albumCoverUrl }
+          });
         } else {
-            // Si no, creamos
-            album = await prisma.album.create({
-                data: {
-                    artistId: artist.id,
-                    title: albumTitle,
-                    releaseYear: releaseYearInt,
-                    coverUrl: albumCoverUrl
-                }
-            });
+          // Si no, creamos
+          album = await prisma.album.create({
+            data: {
+              artistId: artist.id,
+              title: albumTitle,
+              releaseYear: releaseYearInt,
+              coverUrl: albumCoverUrl
+            }
+          });
         }
       }
 
@@ -329,18 +331,18 @@ class AdminController {
         }
       });
 
-      res.json({ 
-        success: true, 
-        message: 'Carta actualizada exitosamente', 
-        data: { 
-            card: {
-                ...card,
-                id: card.id.toString(), // Convertir BigInts a string
-                artist: { ...card.artist, id: card.artist.id.toString() },
-                album: card.album ? { ...card.album, id: card.album.id.toString() } : null,
-                deck: { ...card.deck, id: card.deck.id.toString() }
-            }
-        } 
+      res.json({
+        success: true,
+        message: 'Carta actualizada exitosamente',
+        data: {
+          card: {
+            ...card,
+            id: card.id.toString(), // Convertir BigInts a string
+            artist: { ...card.artist, id: card.artist.id.toString() },
+            album: card.album ? { ...card.album, id: card.album.id.toString() } : null,
+            deck: { ...card.deck, id: card.deck.id.toString() }
+          }
+        }
       });
     } catch (error) {
       console.error('Error actualizando carta:', error);
@@ -348,7 +350,7 @@ class AdminController {
     }
   }
 
-// DELETE /api/admin/cards/:id - Eliminar carta
+  // DELETE /api/admin/cards/:id - Eliminar carta
   static async deleteCard(req, res) {
     try {
       const { id } = req.params;
@@ -360,14 +362,14 @@ class AdminController {
       if (force !== 'true') {
         const playedCount = await prisma.gameRound.count({ where: { cardId } });
         const participantPlayedCount = await prisma.gameParticipantRound.count({ where: { cardId } });
-        
+
         if (playedCount > 0 || participantPlayedCount > 0) {
-          return res.status(400).json({ 
-            success: false, 
+          return res.status(400).json({
+            success: false,
             message: 'Esta carta ya ha sido jugada y no se puede eliminar directamente por seguridad.',
-            data: { 
-                suggestion: 'Usa la opción de forzar eliminación si estás seguro.', 
-                timesPlayed: playedCount + participantPlayedCount 
+            data: {
+              suggestion: 'Usa la opción de forzar eliminación si estás seguro.',
+              timesPlayed: playedCount + participantPlayedCount
             }
           });
         }
@@ -381,25 +383,25 @@ class AdminController {
       }
 
       await prisma.card.delete({ where: { id: cardId } });
-      
+
       res.json({ success: true, message: 'Carta eliminada exitosamente' });
     } catch (error) {
       console.error('Error eliminando carta:', error);
       res.status(500).json({ success: false, message: 'Error al eliminar carta' });
     }
   }
-  
+
   // GET /api/admin/users/export
   static async exportUsers(req, res) {
     try {
       const { format = 'json', startDate, endDate } = req.query;
-      
+
       console.log('🔍 DEBUG - exportUsers called with query:', req.query);
       console.log('🔍 DEBUG - format parameter:', format);
       console.log('🔍 DEBUG - typeof format:', typeof format);
 
       const whereCondition = {};
-      
+
       if (startDate || endDate) {
         whereCondition.createdAt = {};
         if (startDate) {
@@ -474,7 +476,7 @@ class AdminController {
         const sep = ';'
         // Optional Excel-friendly hint line (some locales honor this) - commented out by default
         // const excelSepLine = `sep=${sep}\r\n`;
-        const csvHeader = ['ID','Nombre','Apellido','Email','WhatsApp','Fecha Registro','Último Login','Activo','Google Auth','Puntos Totales','Juegos Totales','Mazos','Juegos Iniciados'].join(sep) + '\r\n';
+        const csvHeader = ['ID', 'Nombre', 'Apellido', 'Email', 'WhatsApp', 'Fecha Registro', 'Último Login', 'Activo', 'Google Auth', 'Puntos Totales', 'Juegos Totales', 'Mazos', 'Juegos Iniciados'].join(sep) + '\r\n';
 
         const escapeCSVField = (field) => {
           if (field === null || field === undefined) return '';
@@ -513,7 +515,7 @@ class AdminController {
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', 'attachment; filename="usuarios_export.csv"');
         res.setHeader('Cache-Control', 'no-cache');
-        
+
         // Send CSV with BOM for proper Excel encoding
         res.send('\uFEFF' + csvContent);
         console.log('🔍 DEBUG - CSV response sent');

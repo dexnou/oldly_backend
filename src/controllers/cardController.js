@@ -1,5 +1,7 @@
 const prisma = require('../utils/database');
 
+const PUBLIC_FRONTEND_URL = 'https://oldyfans.com.ar';
+
 class CardController {
   // GET /api/cards - List all cards (test endpoint)
   static async getAllCards(req, res) {
@@ -97,7 +99,7 @@ class CardController {
               id: card.album.id.toString()
             } : null,
             hasAccess,
-            qrUrl: `${process.env.FRONTEND_URL}/qr/${card.qrToken}`
+            qrUrl: `${PUBLIC_FRONTEND_URL}/play/${card.qrToken}`
           };
         })
       );
@@ -291,7 +293,7 @@ class CardController {
         }
       }
 
-      const qrUrl = `${process.env.FRONTEND_URL}/qr/${card.qrToken}`;
+      const qrUrl = `${PUBLIC_FRONTEND_URL}/play/${card.qrToken}`;
 
       res.json({
         success: true,
@@ -476,12 +478,11 @@ class CardController {
       }
 
       const ticketToken = card.qrToken;
-      // URL to which the QR will point (e.g. your web app for validating/playing)
-      const baseUrl = process.env.FRONTEND_URL;
-      const qrTargetUrl = `${baseUrl}/qr/${ticketToken}`;
+      // Unificamos a la URL pública de producción
+      const qrTargetUrl = `${PUBLIC_FRONTEND_URL}/play/${ticketToken}`;
       const encodedUrl = encodeURIComponent(qrTargetUrl);
 
-      console.log(`[QR DEBUG] Generating QR for: ${qrTargetUrl} (baseUrl: ${baseUrl})`);
+      console.log(`[QR DEBUG] Generating QR for: ${qrTargetUrl}`);
 
       let qrCode = null;
 
