@@ -1,7 +1,7 @@
 const prisma = require('../utils/database');
 const AuthService = require('../services/authService');
 
-const PUBLIC_FRONTEND_URL = 'https://oldyfans.com.ar';
+const PUBLIC_FRONTEND_URL = (process.env.PUBLIC_FRONTEND_URL || 'https://oldyfans.com.ar').replace(/\/+$/, '');
 
 class AdminController {
   // POST /api/admin/decks (Create or Update Deck)

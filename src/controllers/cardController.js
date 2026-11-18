@@ -1,6 +1,6 @@
 const prisma = require('../utils/database');
 
-const PUBLIC_FRONTEND_URL = 'https://oldyfans.com.ar';
+const PUBLIC_FRONTEND_URL = (process.env.PUBLIC_FRONTEND_URL || 'https://oldyfans.com.ar').replace(/\/+$/, '');
 
 class CardController {
   // GET /api/cards - List all cards (test endpoint)
